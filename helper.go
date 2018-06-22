@@ -6,6 +6,7 @@ import (
 
 func Args(args ...interface{}) interface{} {
 	return args
+
 }
 
 // IntP returns a pointer to a defined int

@@ -11,16 +11,16 @@ import (
 )
 
 type (
-	TestFn  func(args ...interface{}) (interface{}, error)
-	DiffFn  func(actual interface{}, expected interface{}) string
-	EqualFn func(actual interface{}, expected interface{}) bool
+	TestFunc  func(args ...interface{}) (result interface{}, err error)
+	DiffFunc  func(actual interface{}, expected interface{}) string
+	EqualFunc func(actual interface{}, expected interface{}) bool
 )
 
 type Trial struct {
 	cases   map[string]Case
-	testFn  TestFn
-	diffFn  DiffFn
-	equalFn EqualFn
+	testFn  TestFunc
+	diffFn  DiffFunc
+	equalFn EqualFunc
 }
 type Cases map[string]Case
 
@@ -34,7 +34,7 @@ type Case struct {
 	ShouldPanic bool  // is a panic expected
 }
 
-func New(fn TestFn, cases map[string]Case) *Trial {
+func New(fn TestFunc, cases map[string]Case) *Trial {
 	if cases == nil {
 		cases = make(map[string]Case)
 	}
@@ -46,16 +46,17 @@ func New(fn TestFn, cases map[string]Case) *Trial {
 	}
 }
 
-func (t *Trial) EqualFn(fn EqualFn) *Trial {
+func (t *Trial) EqualFn(fn EqualFunc) *Trial {
 	t.equalFn = fn
 	return t
 }
 
-func (t *Trial) DiffFn(fn DiffFn) *Trial {
+func (t *Trial) DiffFn(fn DiffFunc) *Trial {
 	t.diffFn = fn
 	return t
 }
 
+// Test all cases provided to trial
 func (trial *Trial) Test(t testing.TB) {
 	if h, ok := t.(tHelper); ok {
 		h.Helper()
