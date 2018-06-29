@@ -41,6 +41,7 @@ type Case struct {
 	ShouldPanic bool  // is a panic expected
 }
 
+// New trial for your code
 func New(fn TestFunc, cases map[string]Case) *Trial {
 	if cases == nil {
 		cases = make(map[string]Case)
@@ -107,10 +108,9 @@ func (t *Trial) testCase(msg string, test Case) (r result) {
 		if equal, diff := t.equalFn(result, test.Expected); !equal {
 			finished = true
 			return fail("FAIL: %q differences %v", msg, diff)
-		} else {
-			finished = true
-			return pass("PASS: %q", msg)
 		}
+		finished = true
+		return pass("PASS: %q", msg)
 	}
 	return pass("PASS: %q", msg)
 }
@@ -147,6 +147,8 @@ func (e errCheck) Error() string {
 	return e.err.Error()
 }
 
+// ErrType can be used with ExpectedErr to check
+// that the expected err is of a certain type
 func ErrType(err error) error {
 	return errCheck{err}
 }

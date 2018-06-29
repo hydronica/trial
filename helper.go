@@ -4,7 +4,8 @@ import (
 	"time"
 )
 
-// Args converts and number of parameters to an interface
+// Args converts any number of parameters to an interface.
+// generally used with Case's Input for multiple params
 func Args(args ...interface{}) interface{} {
 	return args
 }

@@ -1,6 +1,8 @@
 # Trial - Prove the Innocents of your code
 
+[![GoDoc](http://img.shields.io/badge/go-documentation-blue.svg?style=flat-square)](https://godoc.org/github.com/jbsmith7741/trial)
 [![Build Status](https://travis-ci.com/jbsmith7741/trial.svg?branch=master)](https://travis-ci.com/jbsmith7741/trial)
+[![Go Report Card](https://goreportcard.com/badge/github.com/jbsmith7741/trial)](https://goreportcard.com/report/github.com/jbsmith7741/trial)
 
 Framework to make tests easier to create, maintain and debug.
 
