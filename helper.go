@@ -4,9 +4,9 @@ import (
 	"time"
 )
 
+// Args converts and number of parameters to an interface
 func Args(args ...interface{}) interface{} {
 	return args
-
 }
 
 // IntP returns a pointer to a defined int
@@ -54,14 +54,20 @@ func Time(layout, value string) time.Time {
 	return t
 }
 
+// TimeHour is a helper method for parsing times with hour precision.
+// format 2006-01-02T15
 func TimeHour(value string) time.Time {
 	return Time("2006-01-02T15", value)
 }
 
+// TimeDay is a helper method for parsing times with day precision.
+// format 2006-01-02
 func TimeDay(value string) time.Time {
 	return Time("2006-01-02", value)
 }
 
+// Times is a panic wrapper for the time.Parse method
+// it returns a time.Time slice for the given layout and values
 func Times(layout string, values ...string) []time.Time {
 	times := make([]time.Time, len(values))
 	for i, v := range values {

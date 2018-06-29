@@ -1,0 +1,105 @@
+package trial
+
+import (
+	"errors"
+	"testing"
+)
+
+func TestEqualFn(t *testing.T) {
+	type test struct {
+		Public  int
+		private string
+	}
+	New(func(args ...interface{}) (interface{}, error) {
+		r, _ := Equal(args[0], args[1])
+		return r, nil
+	}, map[string]Case{
+		"strings are equal": {
+			Input:    Args("hello", "hello"),
+			Expected: true,
+		},
+		"ints not equal": {
+			Input:    Args(1, 2),
+			Expected: false,
+		},
+		"ignore private methods": {
+			Input:    Args(test{Public: 1}, test{Public: 1}),
+			Expected: true,
+		},
+		"nils don't panic": {
+			Input:    Args(nil, nil),
+			Expected: true,
+		},
+	}).Test(t)
+}
+
+func TestContainsFn(t *testing.T) {
+	New(func(args ...interface{}) (interface{}, error) {
+		b, s := ContainsFn(args[0], args[1])
+		var err error
+		if s != "" {
+			err = errors.New(s)
+		}
+		return b, err
+	}, map[string]Case{
+		"blank string matches anything": {
+			Input:    Args("Hello world", ""),
+			Expected: true,
+		},
+		"case sensitive": {
+			Input:    Args("Hello World", "hello"),
+			Expected: false,
+		},
+		"nil matches everything": {
+			Input:    Args("hello world", nil),
+			Expected: true,
+		},
+		"match substring": {
+			Input:    Args("abcdefghijklmnopqrstuvwxyz", "lmnop"),
+			Expected: true,
+		},
+		"match full string": {
+			Input:    Args("abcdefghijklmnopqrstuvwxyz", "abcdefghijklmnopqrstuvwxyz"),
+			Expected: true,
+		},
+		"slice of strings": {
+			Input:    Args([]string{"hello", "world"}, "world"),
+			Expected: true,
+		},
+		"slice of ints": {
+			Input:    Args([]int{12, 3, 5}, 3),
+			Expected: true,
+		},
+		"slice of different types": {
+			Input:     Args([]int{1, 2, 3}, []float32{1.1}),
+			Expected:  false,
+			ShouldErr: true,
+		},
+		"empty slice": {
+			Input:     Args([]int{}, 1),
+			Expected:  false,
+			ShouldErr: true,
+		},
+		"array of floats": {
+			Input:    Args([3]float64{1.1, 2.2, 3.3}, 2.2),
+			Expected: true,
+		},
+		"array of different type": {
+			Input:     Args([2]int{1, 2}, "hello"),
+			Expected:  false,
+			ShouldErr: true,
+		},
+		"[]interface{}": {
+			Input:    Args([]interface{}{1, 2, 3, "abc", 4.5}, []interface{}{2, "abc"}),
+			Expected: true,
+		},
+		"[]interface{} with int slice": {
+			Input:    Args([]interface{}{1, 2, 3, "abc", 4.5}, []int{2, 1}),
+			Expected: true,
+		},
+		"expected is slice subset of actual": {
+			Input:    Args([]string{"the", "quick", "brown", "fox"}, []string{"fox", "quick"}),
+			Expected: true,
+		},
+	}).Test(t)
+}
