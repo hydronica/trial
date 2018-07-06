@@ -38,22 +38,47 @@ func ContainsFn(x, y interface{}) (bool, string) {
 			for i := 0; i < valY.Len(); i++ {
 				child[i] = valY.Index(i).Interface()
 			}
-			r := containsDiffSlice(valX, child...)
+			r := isInSlice(valX, child...)
 			return r == "", r
 		}
-		r := containsDiffSlice(valX, y)
+		r := isInSlice(valX, y)
 		return r == "", r
 	case reflect.Map:
+		if valY.Kind() != reflect.Map {
+			return false, fmt.Sprintf("- %T\n+%T", x, y)
+		}
+		r := isInMap(valX, valY)
+		return r == "", r
 	}
-	return false, ""
+	return Equal(x, y)
 }
 
-func containsDiffSlice(parent reflect.Value, child ...interface{}) string {
+func isInMap(parent reflect.Value, child reflect.Value) string {
+	result := "-"
+	for _, key := range child.MapKeys() {
+		if !cmp.Equal(parent.MapIndex(key).Interface(), child.MapIndex(key).Interface()) {
+			result += fmt.Sprintf("%v \n", child.MapIndex(key).Interface())
+		}
+	}
+	if result == "-" {
+		return ""
+	}
+	return result
+}
+
+func isInSlice(parent reflect.Value, child ...interface{}) string {
 	result := "-"
 	for _, v := range child {
 		found := false
 		for i := 0; i < parent.Len(); i++ {
-			if cmp.Equal(parent.Index(i).Interface(), v) {
+			p := parent.Index(i)
+			// always use strings.Contains for string value
+			// todo: should this be optional?
+			if s, ok := v.(string); ok && p.Kind() == reflect.String && strings.Contains(p.Interface().(string), s) {
+				found = true
+				break
+			}
+			if cmp.Equal(p.Interface(), v) {
 				found = true
 				break
 			}
