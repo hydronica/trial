@@ -47,8 +47,9 @@ func TestContainsFn(t *testing.T) {
 			Expected: true,
 		},
 		"case sensitive": {
-			Input:    Args("Hello World", "hello"),
-			Expected: false,
+			Input:     Args("Hello World", "hello"),
+			Expected:  false,
+			ShouldErr: true,
 		},
 		"nil matches everything": {
 			Input:    Args("hello world", nil),
@@ -99,6 +100,20 @@ func TestContainsFn(t *testing.T) {
 		},
 		"expected is slice subset of actual": {
 			Input:    Args([]string{"the", "quick", "brown", "fox"}, []string{"fox", "quick"}),
+			Expected: true,
+		},
+		"partial match of string slices": {
+			Input:    Args([]string{"abcdefghijklmnop", "qrstuvwxyz"}, []string{"abc", "def"}),
+			Expected: true,
+		},
+		"map[string]interface{}": {
+			Input: Args(map[string]interface{}{
+				"int":     10,
+				"float64": 1.1,
+				"name":    "hello",
+			},
+				map[string]interface{}{"int": 10},
+			),
 			Expected: true,
 		},
 	}).Test(t)

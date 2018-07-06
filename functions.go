@@ -17,6 +17,12 @@ func ContainsFn(x, y interface{}) (bool, string) {
 	if y == nil {
 		return true, ""
 	}
+	r := contains(x, y)
+	return r.Equal(), r.String()
+}
+
+func contains(x, y interface{}) *diff {
+	d := newDiff()
 	valX := reflect.ValueOf(x)
 	valY := reflect.ValueOf(y)
 	switch valX.Kind() {
@@ -26,10 +32,13 @@ func ContainsFn(x, y interface{}) (bool, string) {
 			if v, ok := y.(fmt.Stringer); ok {
 				s = v.String()
 			} else {
-				return false, fmt.Sprintf("- %T\n+%T", x, y)
+				return d.Errorf("type mismatch -%T +%T", x, y)
 			}
 		}
-		return strings.Contains(x.(string), s), ""
+		if strings.Contains(x.(string), s) {
+			return nil
+		}
+		return d.Errorf(cmp.Diff(x.(string), s))
 	case reflect.Array:
 		fallthrough
 	case reflect.Slice:
@@ -38,59 +47,48 @@ func ContainsFn(x, y interface{}) (bool, string) {
 			for i := 0; i < valY.Len(); i++ {
 				child[i] = valY.Index(i).Interface()
 			}
-			r := isInSlice(valX, child...)
-			return r == "", r
+			return isInSlice(valX, child...)
 		}
-		r := isInSlice(valX, y)
-		return r == "", r
+		return isInSlice(valX, y)
 	case reflect.Map:
 		if valY.Kind() != reflect.Map {
-			return false, fmt.Sprintf("- %T\n+%T", x, y)
+			return d.Errorf("type mismatch -%T +%T", x, y)
 		}
-		r := isInMap(valX, valY)
-		return r == "", r
+		return isInMap(valX, valY)
 	}
-	return Equal(x, y)
+	isEqual, s := Equal(x, y)
+	if isEqual {
+		return nil
+	}
+	return d.Errorf(s)
 }
 
-func isInMap(parent reflect.Value, child reflect.Value) string {
-	result := "-"
+func isInMap(parent reflect.Value, child reflect.Value) *diff {
+	d := newDiff()
 	for _, key := range child.MapKeys() {
-		if !cmp.Equal(parent.MapIndex(key).Interface(), child.MapIndex(key).Interface()) {
-			result += fmt.Sprintf("%v \n", child.MapIndex(key).Interface())
-		}
+		p := parent.MapIndex(key).Interface()
+		c := child.MapIndex(key).Interface()
+		d.Append(contains(p, c))
 	}
-	if result == "-" {
-		return ""
-	}
-	return result
+	return d
 }
 
-func isInSlice(parent reflect.Value, child ...interface{}) string {
-	result := "-"
+func isInSlice(parent reflect.Value, child ...interface{}) *diff {
+	d := newDiff()
 	for _, v := range child {
 		found := false
 		for i := 0; i < parent.Len(); i++ {
 			p := parent.Index(i)
-			// always use strings.Contains for string value
-			// todo: should this be optional?
-			if s, ok := v.(string); ok && p.Kind() == reflect.String && strings.Contains(p.Interface().(string), s) {
-				found = true
-				break
-			}
-			if cmp.Equal(p.Interface(), v) {
+			if contains(p.Interface(), v).Equal() {
 				found = true
 				break
 			}
 		}
 		if !found {
-			result += fmt.Sprintf(" %v\n", v)
+			d.Missing(v)
 		}
 	}
-	if result == "-" {
-		result = ""
-	}
-	return result
+	return d
 }
 
 // Equal use the cmp.Diff method to display differences between two interfaces
@@ -113,4 +111,77 @@ func Equal(actual, expected interface{}) (bool, string) {
 	}
 	r := cmp.Diff(actual, expected, opts...)
 	return r == "", r
+}
+
+func newDiff() *diff {
+	return &diff{
+		plus:  make([]interface{}, 0),
+		minus: make([]interface{}, 0),
+		msgs:  make([]string, 0),
+	}
+}
+
+type diff struct {
+	// values that are in y not x
+	plus []interface{}
+	// values that are in x not y
+	minus []interface{}
+	// msgs is used for additional messaging
+	msgs []string
+}
+
+func (d *diff) Errorf(format string, values ...interface{}) *diff {
+	d.msgs = append(d.msgs, fmt.Sprintf(format, values...))
+	return d
+}
+
+func (d *diff) Extra(i interface{}) {
+	d.plus = append(d.plus, i)
+}
+
+func (d *diff) Missing(i interface{}) {
+	d.minus = append(d.minus, i)
+}
+
+func (d *diff) Equal() bool {
+	if d == nil {
+		return true
+	}
+	return len(d.plus) == 0 && len(d.minus) == 0 && len(d.msgs) == 0
+}
+
+func (d *diff) Append(v *diff) {
+	if v == nil {
+		return
+	}
+	d.msgs = append(d.msgs, v.msgs...)
+	d.plus = append(d.plus, v.plus...)
+	d.minus = append(d.minus, v.minus...)
+}
+
+func (d *diff) String() (s string) {
+	if d == nil {
+		return ""
+	}
+	if len(d.msgs) > 0 {
+		for _, v := range d.msgs {
+			s += v + "\n"
+		}
+		return s
+	}
+
+	if len(d.plus) > 0 {
+		s = "+"
+		for _, v := range d.plus {
+			s += fmt.Sprintf("%v\n", v)
+		}
+	}
+
+	if len(d.minus) > 0 {
+		s += "-"
+		for _, v := range d.minus {
+			s += fmt.Sprintf("%v\n", v)
+		}
+	}
+	return s
 }

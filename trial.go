@@ -100,14 +100,14 @@ func (t *Trial) testCase(msg string, test Case) (r result) {
 		return fail("FAIL: %q should error", msg)
 	} else if !test.ShouldErr && err != nil && test.ExpectedErr == nil {
 		finished = true
-		return fail("FAIL: %q unexpected error %s", msg, err.Error())
+		return fail("FAIL: %q unexpected error '%s'", msg, err.Error())
 	} else if test.ExpectedErr != nil && !isExpectedError(err, test.ExpectedErr) {
 		finished = true
 		return fail("FAIL: %q error %q does not match expected %q", msg, err, test.ExpectedErr)
 	} else if !test.ShouldErr && test.ExpectedErr == nil {
 		if equal, diff := t.equalFn(result, test.Expected); !equal {
 			finished = true
-			return fail("FAIL: %q differences %v", msg, diff)
+			return fail("FAIL: %q \n%s", msg, diff)
 		}
 		finished = true
 		return pass("PASS: %q", msg)

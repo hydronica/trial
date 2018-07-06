@@ -55,7 +55,7 @@ func TestTrial_TestCase(t *testing.T) {
 			Case: Case{
 				Input: []interface{}{1, 0},
 			},
-			expResult: result{false, `FAIL: "1/0 - unexpected error" unexpected error divide by zero`},
+			expResult: result{false, `FAIL: "1/0 - unexpected error" unexpected error 'divide by zero'`},
 		},
 		"10/2 - unexpected result": {
 			trial: New(divideFn, nil),
@@ -63,7 +63,7 @@ func TestTrial_TestCase(t *testing.T) {
 				Input:    []interface{}{10, 2},
 				Expected: 10,
 			},
-			expResult: result{false, "FAIL: \"10/2 - unexpected result\" differences {int}:\n\t-: 5\n\t+: 10\n"},
+			expResult: result{false, "FAIL: \"10/2 - unexpected result\" \n{int}:\n\t-: 5\n\t+: 10\n"},
 		},
 		"parse time": {
 			trial: New(panicFn, nil),
