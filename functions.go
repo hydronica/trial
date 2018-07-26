@@ -113,6 +113,28 @@ func Equal(actual, expected interface{}) (bool, string) {
 	return r == "", r
 }
 
+// CmpFuncs tries to determine if x is the same function as y.
+func CmpFuncs(x, y interface{}) (b bool, s string) {
+	if x == nil || y == nil {
+		if x == y {
+			return true, ""
+		}
+		return false, fmt.Sprintf("%v != %v", x, y)
+	}
+
+	valX := reflect.ValueOf(x)
+	valY := reflect.ValueOf(y)
+
+	if valX.Kind() != reflect.Func || valY.Kind() != reflect.Func {
+		return false, fmt.Sprintf("can only compare functions x=%v(%v) y=%v(%v) ", valX.Type(), x, valY.Type(), y)
+	}
+
+	if valY.Pointer() == valX.Pointer() {
+		return true, ""
+	}
+	return false, fmt.Sprintf("funcs not equal 0x%x != 0x%x", valY.Pointer(), valX.Pointer())
+}
+
 func newDiff() *diff {
 	return &diff{
 		plus:  make([]interface{}, 0),

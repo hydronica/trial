@@ -2,3 +2,6 @@ coverage:
   range: 60..90
   round: down
   precision: 2
+
+ignore:
+- "helper.go"

@@ -22,8 +22,12 @@ func TestEqualFn(t *testing.T) {
 			Input:    Args(1, 2),
 			Expected: false,
 		},
-		"ignore private methods": {
-			Input:    Args(test{Public: 1}, test{Public: 1}),
+		"compare private methods": {
+			Input:    Args(test{Public: 1, private: "a"}, test{Public: 1, private: "a"}),
+			Expected: true,
+		},
+		"private method pointer": {
+			Input:    Args(&test{Public: 1, private: "a"}, &test{Public: 1, private: "a"}),
 			Expected: true,
 		},
 		"nils don't panic": {
@@ -117,4 +121,33 @@ func TestContainsFn(t *testing.T) {
 			Expected: true,
 		},
 	}).Test(t)
+}
+
+func TestCmpFuncs(t *testing.T) {
+	fn := func(args ...interface{}) (interface{}, error) {
+		_, s := CmpFuncs(args[0], args[1])
+		return s, nil
+	}
+	New(fn, Cases{
+		"x & y are nil": {
+			Input:    Args(nil, nil),
+			Expected: "",
+		},
+		"only y is nil": {
+			Input:    Args(10, nil),
+			Expected: "10 != <nil>",
+		},
+		"handle non-function input": {
+			Input:    Args(1, 2),
+			Expected: "can only compare functions",
+		},
+		"identical functions": {
+			Input:    Args(Equal, Equal),
+			Expected: "",
+		},
+		"non-identical functions": {
+			Input:    Args(Equal, ContainsFn),
+			Expected: "funcs not equal",
+		},
+	}).EqualFn(ContainsFn).Test(t)
 }
