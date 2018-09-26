@@ -71,6 +71,10 @@ func TestContainsFn(t *testing.T) {
 			Input:    Args([]string{"hello", "world"}, "world"),
 			Expected: true,
 		},
+		"array of strings": {
+			Input:    Args([2]string{"hello", "world"}, "world"),
+			Expected: true,
+		},
 		"slice of ints": {
 			Input:    Args([]int{12, 3, 5}, 3),
 			Expected: true,
@@ -104,6 +108,10 @@ func TestContainsFn(t *testing.T) {
 		},
 		"expected is slice subset of actual": {
 			Input:    Args([]string{"the", "quick", "brown", "fox"}, []string{"fox", "quick"}),
+			Expected: true,
+		},
+		"expected is array subset of actual": {
+			Input:    Args([4]string{"the", "quick", "brown", "fox"}, [2]string{"fox", "quick"}),
 			Expected: true,
 		},
 		"partial match of string slices": {

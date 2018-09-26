@@ -42,7 +42,7 @@ func contains(x, y interface{}) *diff {
 	case reflect.Array:
 		fallthrough
 	case reflect.Slice:
-		if valY.Kind() == reflect.Slice {
+		if valY.Kind() == reflect.Slice || valY.Kind() == reflect.Array {
 			child := make([]interface{}, valY.Len())
 			for i := 0; i < valY.Len(); i++ {
 				child[i] = valY.Index(i).Interface()
@@ -91,8 +91,8 @@ func isInSlice(parent reflect.Value, child ...interface{}) *diff {
 	return d
 }
 
-// Equal use the cmp.Diff method to display differences between two interfaces
-// and check for equality
+// Equal use the cmp.Diff method to check equality and display differences.
+// This method checks all unexpected values
 func Equal(actual, expected interface{}) (bool, string) {
 	var opts []cmp.Option
 	t := reflect.TypeOf(actual)

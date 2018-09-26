@@ -61,11 +61,12 @@ func TestAdd(t *testing.T) {
   testFn := func(args ...interface{}) (interface{}, error) {
     return Add(args[0].(int), args[1].(int), nil
   }
-  trial.New(fn, trial.Cases{
+  cases := trial.Cases{
     "Add two numbers":{
       Input: trial.Args(1,2),
       Expected: 3,
-  }).Test(t)
+  }
+  trial.New(fn, cases).Test(t)
   }
 
   // Output: PASS: "Add two numbers"
@@ -78,7 +79,7 @@ func TestStrconv_Itoa(t *testing.T)
 testFn := func(args ...interface{}) (interface{}, error) {
     return strconv.Itoa(args[0].(int))
 }
-trial.New(fn, trial.Cases{
+cases :=trial.Cases{
   "valid int":{
     Input: "12",
     Expected: 12,
@@ -87,7 +88,8 @@ trial.New(fn, trial.Cases{
     Input: "1abe",
     ShouldErr: true,
   },
-}).Test(t)
+}
+trial.New(fn, cases).Test(t)
 }
 
 // Output: PASS: "valid int"
@@ -104,7 +106,7 @@ func TestDivide(t *testing.T) {
   fn := func(args ...interface) (interface{}, error) {
     return Divide(args[0].(int), args[1].(int)), nil
   }
-  trial.New(fn, trial.Cases{
+  cases := trial.Cases{
     "1/1":{
       Input: trial.Args(1,1),
       Expected: 1,
@@ -117,7 +119,8 @@ func TestDivide(t *testing.T) {
       Input: trial.Args(1,0),
       ShouldPanic: true,
     }
-  }).Test(t)
+  }
+  trial.New(fn, cases).Test(t)
 }
 // Output: PASS: "1/1"
 // FAIL: "6/2"
