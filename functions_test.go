@@ -10,6 +10,12 @@ func TestEqualFn(t *testing.T) {
 		Public  int
 		private string
 	}
+	type parent struct {
+		child test
+	}
+	type grandparent struct {
+		parent *parent
+	}
 	New(func(args ...interface{}) (interface{}, error) {
 		r, _ := Equal(args[0], args[1])
 		return r, nil
@@ -24,6 +30,22 @@ func TestEqualFn(t *testing.T) {
 		},
 		"compare private methods": {
 			Input:    Args(test{Public: 1, private: "a"}, test{Public: 1, private: "a"}),
+			Expected: true,
+		},
+		"compare private structs with private methods": {
+			Input:    Args(parent{child: test{Public: 1, private: "a"}}, parent{child: test{Public: 1, private: "a"}}),
+			Expected: true,
+		},
+		"multi-depth private struct with pointer": {
+			Input: Args(grandparent{
+				parent: &parent{
+					child: test{Public: 1, private: "a"},
+				},
+			}, grandparent{
+				parent: &parent{
+					child: test{Public: 1, private: "a"},
+				},
+			}),
 			Expected: true,
 		},
 		"private method pointer": {

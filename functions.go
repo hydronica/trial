@@ -94,7 +94,7 @@ func isInSlice(parent reflect.Value, child ...interface{}) *diff {
 // Equal use the cmp.Diff method to check equality and display differences.
 // This method checks all unexpected values
 func Equal(actual, expected interface{}) (bool, string) {
-	var opts []cmp.Option
+	/* var opts []cmp.Option
 	t := reflect.TypeOf(actual)
 	if t == nil {
 	} else if t.Kind() == reflect.Struct {
@@ -108,9 +108,51 @@ func Equal(actual, expected interface{}) (bool, string) {
 		opts = append(opts, cmp.AllowUnexported(expected))
 	} else if t.Kind() == reflect.Ptr && t.Elem().Kind() == reflect.Struct {
 		opts = append(opts, cmp.AllowUnexported(reflect.ValueOf(expected).Elem().Interface()))
-	}
+	} */
+	opts := allowUnexported(actual)
+
 	r := cmp.Diff(actual, expected, opts...)
 	return r == "", r
+}
+
+// allowUnexported sets up i to be compared including unexported fields using cmp.Diff or cmp.Equal.
+// this function includes all unexported embedded structs or pointers to structs at all depths
+func allowUnexported(i interface{}) []cmp.Option {
+	opts := make([]cmp.Option, 0)
+	t := reflect.TypeOf(i)
+	// skip invalid types
+	if t == nil {
+		return opts
+	}
+	// add struct and pointers to struct
+	if t.Kind() == reflect.Struct {
+		opts = append(opts, cmp.AllowUnexported(i))
+	} else if t.Kind() == reflect.Ptr && t.Elem().Kind() == reflect.Struct {
+		i = reflect.ValueOf(i).Elem().Interface()
+		opts = append(opts, cmp.AllowUnexported(i))
+	} else {
+		return opts
+	}
+	rStruct := reflect.ValueOf(i)
+
+	// look through all fields of a struct for embedded structs
+	for index := 0; index < rStruct.NumField(); index++ {
+		v := rStruct.Field(index)
+		if v.Kind() == reflect.Struct {
+			if !v.CanInterface() {
+				// if the field is unexported (private) we wouldn't be able
+				// get the interface{} so instead create a copy of that field
+				v = reflect.New(v.Type()).Elem()
+			}
+			opts = append(opts, allowUnexported(v.Interface())...)
+		} else if v.Kind() == reflect.Ptr && v.Elem().Kind() == reflect.Struct {
+			// to support unexported (private) fields we need to create a copy
+			// of the field and then dereference the pointer to that struct
+			i = reflect.New(v.Elem().Type()).Elem().Interface()
+			opts = append(opts, allowUnexported(i)...)
+		}
+	}
+	return opts
 }
 
 // CmpFuncs tries to determine if x is the same function as y.
