@@ -125,33 +125,52 @@ func allowUnexported(i interface{}) []cmp.Option {
 		return opts
 	}
 	// add struct and pointers to struct
-	if t.Kind() == reflect.Struct {
-		opts = append(opts, cmp.AllowUnexported(i))
-	} else if t.Kind() == reflect.Ptr && t.Elem().Kind() == reflect.Struct {
+	switch t.Kind() {
+	case reflect.Ptr:
+		if t.Elem().Kind() != reflect.Struct {
+			return opts
+		}
 		i = reflect.ValueOf(i).Elem().Interface()
+		fallthrough
+	case reflect.Struct:
 		opts = append(opts, cmp.AllowUnexported(i))
-	} else {
-		return opts
-	}
-	rStruct := reflect.ValueOf(i)
+		rStruct := reflect.ValueOf(i)
 
-	// look through all fields of a struct for embedded structs
-	for index := 0; index < rStruct.NumField(); index++ {
-		v := rStruct.Field(index)
-		if v.Kind() == reflect.Struct {
+		// look through all fields of a struct for embedded structs
+		for index := 0; index < rStruct.NumField(); index++ {
+			v := rStruct.Field(index)
+			if v.Kind() == reflect.Ptr && v.Elem().Kind() == reflect.Struct {
+				// to support unexported (private) fields we need to create a copy
+				// of the field and then dereference the pointer to that struct
+				i = reflect.New(v.Elem().Type()).Elem().Interface()
+				opts = append(opts, allowUnexported(i)...)
+				continue
+			}
 			if !v.CanInterface() {
 				// if the field is unexported (private) we wouldn't be able
 				// get the interface{} so instead create a copy of that field
 				v = reflect.New(v.Type()).Elem()
 			}
 			opts = append(opts, allowUnexported(v.Interface())...)
-		} else if v.Kind() == reflect.Ptr && v.Elem().Kind() == reflect.Struct {
-			// to support unexported (private) fields we need to create a copy
-			// of the field and then dereference the pointer to that struct
-			i = reflect.New(v.Elem().Type()).Elem().Interface()
-			opts = append(opts, allowUnexported(i)...)
 		}
+	case reflect.Map:
+		m := reflect.ValueOf(i)
+		for _, key := range m.MapKeys() {
+			v := m.MapIndex(key)
+			opts = append(opts, allowUnexported(v.Interface())...)
+		}
+	case reflect.Array:
+		fallthrough
+	case reflect.Slice:
+		s := reflect.ValueOf(i)
+		for i := 0; i < s.Len(); i++ {
+			v := s.Index(i)
+			opts = append(opts, allowUnexported(v.Interface())...)
+		}
+	default:
+		return opts
 	}
+
 	return opts
 }
 

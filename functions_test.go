@@ -16,14 +16,14 @@ func TestEqualFn(t *testing.T) {
 	type grandparent struct {
 		parent *parent
 	}
-	New(func(args ...interface{}) (interface{}, error) {
+	fn := func(args ...interface{}) (interface{}, error) {
 		r, _ := Equal(args[0], args[1])
 		return r, nil
-	}, map[string]Case{
-		"strings are equal": {
-			Input:    Args("hello", "hello"),
-			Expected: true,
-		},
+	}
+	cases := Cases{"strings are equal": {
+		Input:    Args("hello", "hello"),
+		Expected: true,
+	},
 		"ints not equal": {
 			Input:    Args(1, 2),
 			Expected: false,
@@ -56,7 +56,48 @@ func TestEqualFn(t *testing.T) {
 			Input:    Args(nil, nil),
 			Expected: true,
 		},
-	}).Test(t)
+		"private members as part of map type": {
+			Input: Args(
+				map[string]test{"": {Public: 1, private: "a"}},
+				map[string]test{"": {Public: 1, private: "a"}},
+			),
+			Expected: true,
+		},
+		"empty private map type": {
+			Input: Args(
+				map[string]test{},
+				map[string]test{},
+			),
+			Expected: true,
+		},
+		"private key in map": {
+			Input: Args(
+				map[test]string{test{Public: 1, private: "a"}: "apple"},
+				map[test]string{test{Public: 1, private: "a"}: "apple"},
+			),
+			Expected: true,
+		},
+		"private slice": {
+			Input: Args(
+				[]test{{Public: 1, private: "a"}},
+				[]test{{Public: 1, private: "a"}}),
+			Expected: true,
+		},
+		"interface slice with private methods": {
+			Input: Args(
+				[]interface{}{test{Public: 1, private: "a"}, parent{}},
+				[]interface{}{test{Public: 1, private: "a"}, parent{}},
+			),
+			Expected: true,
+		},
+		"private array": {
+			Input: Args(
+				[1]test{{Public: 1, private: "a"}},
+				[1]test{{Public: 1, private: "a"}}),
+			Expected: true,
+		},
+	}
+	New(fn, cases).Test(t)
 }
 
 func TestContainsFn(t *testing.T) {
