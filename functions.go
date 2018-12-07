@@ -130,6 +130,9 @@ func allowUnexported(i interface{}) []cmp.Option {
 		if t.Elem().Kind() != reflect.Struct {
 			return opts
 		}
+		if reflect.ValueOf(i).IsNil() {
+			return opts
+		}
 		i = reflect.ValueOf(i).Elem().Interface()
 		fallthrough
 	case reflect.Struct:

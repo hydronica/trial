@@ -3,6 +3,7 @@ package trial
 import (
 	"errors"
 	"testing"
+	"time"
 )
 
 func TestEqualFn(t *testing.T) {
@@ -15,6 +16,7 @@ func TestEqualFn(t *testing.T) {
 	}
 	type grandparent struct {
 		parent *parent
+		t      time.Time
 	}
 	fn := func(args ...interface{}) (interface{}, error) {
 		r, _ := Equal(args[0], args[1])
@@ -74,6 +76,13 @@ func TestEqualFn(t *testing.T) {
 			Input: Args(
 				map[test]string{test{Public: 1, private: "a"}: "apple"},
 				map[test]string{test{Public: 1, private: "a"}: "apple"},
+			),
+			Expected: true,
+		},
+		"map with *pointer struct": {
+			Input: Args(
+				map[string]grandparent{"a": {t: TimeHour("2018-01-01T00")}},
+				map[string]grandparent{"a": {t: TimeHour("2018-01-01T00")}},
 			),
 			Expected: true,
 		},

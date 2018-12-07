@@ -118,9 +118,9 @@ func (t *Trial) testCase(msg string, test Case) (r result) {
 // cleanStack removes unhelpful lines from a panic stack track
 func cleanStack() (s string) {
 	for _, ln := range strings.Split(string(debug.Stack()), "\n") {
-		if strings.Contains(ln, "/jbsmith7741/trial") {
+		/* if strings.Contains(ln, "/jbsmith7741/trial") {
 			continue
-		}
+		} */
 		if strings.Contains(ln, "go/src/runtime/debug/stack.go") {
 			continue
 		}
