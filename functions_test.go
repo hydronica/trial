@@ -200,6 +200,10 @@ func TestContainsFn(t *testing.T) {
 			),
 			Expected: true,
 		},
+		"map parent missing key": {
+			Input:     Args(map[string]string{}, map[string]string{"test": "a"}),
+			ShouldErr: true,
+		},
 	}).Test(t)
 }
 

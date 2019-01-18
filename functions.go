@@ -8,11 +8,14 @@ import (
 	"github.com/google/go-cmp/cmp"
 )
 
-// ContainsFn determines if y is a subset of x.
+// ContainsFn has been renamed to Contains
+func ContainsFn(x, y interface{}) (bool, string) { return Contains(x, y) }
+
+// Contains determines if y is a subset of x.
 // x is a string -> y is a string that is equal to or a subset of x (string.Contains)
 // x is a slice or array -> y is contained in x
 // x is a map -> y is a map and is contained in x
-func ContainsFn(x, y interface{}) (bool, string) {
+func Contains(x, y interface{}) (bool, string) {
 	// if nothing is expected we have a match
 	if y == nil {
 		return true, ""
@@ -66,9 +69,13 @@ func contains(x, y interface{}) *diff {
 func isInMap(parent reflect.Value, child reflect.Value) *diff {
 	d := newDiff()
 	for _, key := range child.MapKeys() {
-		p := parent.MapIndex(key).Interface()
-		c := child.MapIndex(key).Interface()
-		d.Append(contains(p, c))
+		p := parent.MapIndex(key)
+		if !p.IsValid() {
+			d.Missing(fmt.Sprintf("%v key=%v", parent.Type(), key))
+			continue
+		}
+		c := child.MapIndex(key)
+		d.Append(contains(p.Interface(), c.Interface()))
 	}
 	return d
 }
