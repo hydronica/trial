@@ -9,6 +9,7 @@ import (
 )
 
 // ContainsFn has been renamed to Contains
+// Deprecated:
 func ContainsFn(x, y interface{}) (bool, string) { return Contains(x, y) }
 
 // Contains determines if y is a subset of x.
@@ -21,11 +22,13 @@ func Contains(x, y interface{}) (bool, string) {
 		return true, ""
 	}
 	r := contains(x, y)
-	return r.Equal(), r.String()
+	if r == nil {
+		return true, ""
+	}
+	return false, r.String()
 }
 
-func contains(x, y interface{}) *diff {
-	d := newDiff()
+func contains(x, y interface{}) differ {
 	valX := reflect.ValueOf(x)
 	valY := reflect.ValueOf(y)
 	switch valX.Kind() {
@@ -35,13 +38,13 @@ func contains(x, y interface{}) *diff {
 			if v, ok := y.(fmt.Stringer); ok {
 				s = v.String()
 			} else {
-				return d.Errorf("type mismatch -%T +%T", x, y)
+				return newMessagef("type mismatch %T %T", x, y)
 			}
 		}
-		if strings.Contains(x.(string), s) {
+		if strings.Contains(valX.String(), s) {
 			return nil
 		}
-		return d.Errorf(cmp.Diff(x.(string), s))
+		return newDiff(x, s)
 	case reflect.Array:
 		fallthrough
 	case reflect.Slice:
@@ -50,52 +53,71 @@ func contains(x, y interface{}) *diff {
 			for i := 0; i < valY.Len(); i++ {
 				child[i] = valY.Index(i).Interface()
 			}
-			return isInSlice(valX, child...)
+			if d := isInSlice(valX, child...); d != nil {
+				return newDiffMsg(x, y, d.String())
+			}
+			return nil
 		}
-		return isInSlice(valX, y)
+		if d := isInSlice(valX, y); d != nil {
+			return newDiffMsg(x, y, d.String())
+		}
+		return nil
 	case reflect.Map:
 		if valY.Kind() != reflect.Map {
-			return d.Errorf("type mismatch -%T +%T", x, y)
+			return newMessagef("type mismatch %T %T", x, y)
+
 		}
-		return isInMap(valX, valY)
+		if d := isInMap(valX, valY); d != nil {
+			return newDiffMsg(x, y, d.String())
+		}
+		return nil
 	}
 	isEqual, s := Equal(x, y)
 	if isEqual {
 		return nil
 	}
-	return d.Errorf(s)
+	return newMessagef(s)
 }
 
-func isInMap(parent reflect.Value, child reflect.Value) *diff {
-	d := newDiff()
+func isInMap(parent reflect.Value, child reflect.Value) differ {
+	d := &mapDiff{values: make(map[interface{}][]string, 0)}
 	for _, key := range child.MapKeys() {
 		p := parent.MapIndex(key)
 		if !p.IsValid() {
-			d.Missing(fmt.Sprintf("%v key=%v", parent.Type(), key))
+			d.values[key] = make([]string, 0)
 			continue
 		}
 		c := child.MapIndex(key)
-		d.Append(contains(p.Interface(), c.Interface()))
+		if ok := contains(p.Interface(), c.Interface()); ok != nil {
+			d.values[key] = append(d.values[key], ok.String())
+		}
 	}
-	return d
+	return d.diffOrNil()
 }
 
-func isInSlice(parent reflect.Value, child ...interface{}) *diff {
-	d := newDiff()
+func isInSlice(parent reflect.Value, child ...interface{}) differ {
+	c := &collection{
+		found:   make([]interface{}, 0),
+		missing: make([]interface{}, 0),
+	}
 	for _, v := range child {
 		found := false
 		for i := 0; i < parent.Len(); i++ {
 			p := parent.Index(i)
-			if contains(p.Interface(), v).Equal() {
+			if contains(p.Interface(), v) == nil {
 				found = true
+				c.found = append(c.found, v)
 				break
 			}
 		}
 		if !found {
-			d.Missing(v)
+			c.missing = append(c.missing, v)
 		}
 	}
-	return d
+	if len(c.missing) > 0 {
+		return c
+	}
+	return nil
 }
 
 // Equal use the cmp.Diff method to check equality and display differences.
@@ -206,75 +228,83 @@ func CmpFuncs(x, y interface{}) (b bool, s string) {
 	return false, fmt.Sprintf("funcs not equal 0x%x != 0x%x", valY.Pointer(), valX.Pointer())
 }
 
-func newDiff() *diff {
-	return &diff{
-		plus:  make([]interface{}, 0),
-		minus: make([]interface{}, 0),
-		msgs:  make([]string, 0),
+type differ interface {
+	String() string
+}
+
+// message is a differ for display a custom message
+type message string
+
+func (m message) String() string { return string(m) }
+func newMessagef(s string, args ...interface{}) message {
+	return message(fmt.Sprintf(s, args...))
+}
+
+//collection is a differ used for slices to show what items match and which don't
+type collection struct {
+	found   []interface{}
+	missing []interface{}
+}
+
+func (c *collection) String() (s string) {
+	s = " ∈"
+	for _, v := range c.found {
+		s += fmt.Sprintf(" %v,", v)
 	}
+	s = strings.TrimRight(s, " ∈,")
+	s += "\n -"
+	for _, v := range c.missing {
+		s += fmt.Sprintf(" %v,", v)
+	}
+	return strings.Trim(s, ",\n")
 }
 
 type diff struct {
-	// values that are in y not x
-	plus []interface{}
-	// values that are in x not y
-	minus []interface{}
-	// msgs is used for additional messaging
-	msgs []string
+	x   interface{}
+	y   interface{}
+	msg string
 }
 
-func (d *diff) Errorf(format string, values ...interface{}) *diff {
-	d.msgs = append(d.msgs, fmt.Sprintf(format, values...))
-	return d
+func newDiff(x, y interface{}) *diff {
+	return &diff{
+		x:   x,
+		y:   y,
+		msg: fmt.Sprintf(" + %v\n - %v", x, y)}
 }
 
-func (d *diff) Extra(i interface{}) {
-	d.plus = append(d.plus, i)
+func newDiffMsg(x, y interface{}, s string) *diff {
+	return &diff{x, y, s}
 }
 
-func (d *diff) Missing(i interface{}) {
-	d.minus = append(d.minus, i)
+func (d *diff) String() string {
+	return fmt.Sprintf("%T ⊇ %T\n%s", d.x, d.y, d.msg)
 }
 
-func (d *diff) Equal() bool {
-	if d == nil {
-		return true
-	}
-	return len(d.plus) == 0 && len(d.minus) == 0 && len(d.msgs) == 0
+// mapDiff is a differ for maps
+type mapDiff struct {
+	values map[interface{}][]string
 }
 
-func (d *diff) Append(v *diff) {
-	if v == nil {
-		return
-	}
-	d.msgs = append(d.msgs, v.msgs...)
-	d.plus = append(d.plus, v.plus...)
-	d.minus = append(d.minus, v.minus...)
-}
-
-func (d *diff) String() (s string) {
-	if d == nil {
-		return ""
-	}
-	if len(d.msgs) > 0 {
-		for _, v := range d.msgs {
-			s += v + "\n"
+func (d *mapDiff) String() (s string) {
+	for key, args := range d.values {
+		s += fmt.Sprintf(" [%v]", key)
+		if len(args) == 0 {
+			s += ": missing key\n"
+			continue
 		}
-		return s
+		var sub string
+		for _, v := range args {
+			sub += fmt.Sprintf(" %v", v)
+		}
+		s += ":" + strings.Replace(sub, "\n", "\n    ", -1) + "\n"
 	}
 
-	if len(d.plus) > 0 {
-		s = "+"
-		for _, v := range d.plus {
-			s += fmt.Sprintf("%v\n", v)
-		}
-	}
+	return strings.TrimRight(s, "\n")
+}
 
-	if len(d.minus) > 0 {
-		s += "-"
-		for _, v := range d.minus {
-			s += fmt.Sprintf("%v\n", v)
-		}
+func (d *mapDiff) diffOrNil() differ {
+	if len(d.values) > 0 {
+		return d
 	}
-	return s
+	return nil
 }

@@ -123,9 +123,27 @@ func TestContainsFn(t *testing.T) {
 			Expected: true,
 		},
 		"case sensitive": {
-			Input:     Args("Hello World", "hello"),
-			Expected:  false,
-			ShouldErr: true,
+			Input:       Args("Hello World", "hello"),
+			Expected:    false,
+			ExpectedErr: errors.New("string ⊇ string\n + Hello World\n - hello"),
+		},
+		"type mismatch (string)": {
+			Input:       Args("hello", 1),
+			Expected:    false,
+			ExpectedErr: errors.New("type mismatch string int"),
+		},
+		"type mismatch (map)": {
+			Input:       Args(map[int]int{1: 1}, 1),
+			Expected:    false,
+			ExpectedErr: errors.New("type mismatch map[int]int int"),
+		},
+		"stringer type": {
+			Input:    Args("hello", newMessagef("llo")),
+			Expected: true,
+		},
+		"alias string": {
+			Input:    Args(newMessagef("hello"), "ello"),
+			Expected: true,
 		},
 		"nil matches everything": {
 			Input:    Args("hello world", nil),
@@ -150,6 +168,11 @@ func TestContainsFn(t *testing.T) {
 		"slice of ints": {
 			Input:    Args([]int{12, 3, 5}, 3),
 			Expected: true,
+		},
+		"[]int format check": {
+			Input:       Args([]int{1, 2, 3}, []int{2, 3, 4, 5}),
+			Expected:    false,
+			ExpectedErr: errors.New("[]int ⊇ []int\n ∈ 2, 3\n - 4, 5"),
 		},
 		"slice of different types": {
 			Input:     Args([]int{1, 2, 3}, []float32{1.1}),
@@ -191,14 +214,25 @@ func TestContainsFn(t *testing.T) {
 			Expected: true,
 		},
 		"map[string]interface{}": {
-			Input: Args(map[string]interface{}{
-				"int":     10,
-				"float64": 1.1,
-				"name":    "hello",
-			},
+			Input: Args(
+				map[string]interface{}{
+					"int":     10,
+					"float64": 1.1,
+					"name":    "hello",
+				},
 				map[string]interface{}{"int": 10},
 			),
 			Expected: true,
+		},
+		"map[int]string": {
+			Input:     Args(map[int]string{1: "a", 2: "b"}, map[int]string{1: "a", 2: "c", 3: "b"}),
+			Expected:  false,
+			ShouldErr: true,
+		},
+		"map[int][]string": {
+			Input:     Args(map[int][]string{1: {"a", "b", "c"}, 2: {"d", "e", "f"}}, map[int][]string{3: {}, 1: {"b", "c", "d"}, 2: {"f"}}),
+			Expected:  false,
+			ShouldErr: true,
 		},
 		"map parent missing key": {
 			Input:     Args(map[string]string{}, map[string]string{"test": "a"}),
