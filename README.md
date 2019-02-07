@@ -126,3 +126,90 @@ func TestDivide(t *testing.T) {
 // FAIL: "6/2"
 // PASS: "divide by zero"
 ```
+
+## Compare Functions
+used to compare two values to determine if they are considered equal and displayed a detailed string describing the differences found.
+
+``` go
+func(actual, expected interface{}) (equal bool, differences string)
+```
+
+override the default
+
+``` go
+trial.New(fn, cases).EqualFn(myComparer).Test(t)
+```
+
+### Equal
+This is the default comparer used, it is a wrapping for cmp.Equal with the AllowUnexported option set for all structs. This causes all fields (public and private) in a struct to be compared. (see https://github.com/google/go-cmp)
+
+### Contains ⊇
+
+Checks if the expected value is *contained* in the actual value. The symbol ⊇ is used to donate a subset. ∈ is used to show that a value exists in a slice. Contains checks the following relationships
+
+- **string ⊇ string**
+  - is the expected string contained in the actual string (strings.Contains)
+- **[]interface{} ⊇ interface{}**
+  - is the expected value found in the slice or array
+- **[]interface{} ⊇ []interface{}**
+  - is the expected slice a subset of the actual slice. all values in expected exist and are contained in actual.
+- **map[key]interface{} ⊇ map[key]interface{}**
+  - is the expected map a subset of the actual map. all keys in expected are in actual and all values under that key are contained in actual
+
+## Helper Functions
+The helper function are convince methods for either ignore errors for test setup or with capture output for testing.
+
+### Output Capturing
+  Capture output written to log, stdout or stderr.
+  Call *ReadAll* to get captured data as a single string.
+  Call *ReadLines* to get captured data as a []string split by newline. Calling either method closes and reset the output redirection.
+
+#### CaptureLog
+
+``` go
+  c := CaptureLog()
+  // logic that writes to logs
+  log.Print("hello")
+  c.ReadAll() // -> returns hello
+```
+
+Note: log is reset to write to stderr
+
+#### CaptureStdErr
+
+``` go
+  c := CaptureStdErr()
+  // write to stderr
+  fmt.Fprint(os.stderr, "hello\n")
+  fmt.Fprint(os.stderr, "world")
+  c.ReadLines() // []string{"hello","world"}
+```
+
+#### CaptureStdOut
+
+``` go
+  c := CaptureStdOut()
+  // write to stdout
+  fmt.Println("hello")
+  fmt.Print("world")
+  c.ReadLines() // []string{"hello","world"}
+```
+
+### Time Parsing
+
+convenience functions for getting a time value to test, methods panic instead of error
+
+- **TimeHour(s string)** - uses format "2006-01-02T15"
+- **TimeDay(s string)** - uses format "2006-01-02"
+- **Times(layout string, values ...string)**
+- **TimeP(layout string, s string)** returns a *time.Time
+
+### Pointer init
+
+convenience functions for initializing a pointer to a basic type
+
+- int pointer
+  - IntP, Int8P, Int16P, Int32P, Int64P
+- float pointer
+  - Float32P, Float64P
+- string pointer - StringP

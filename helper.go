@@ -45,6 +45,11 @@ func Float64P(f float64) *float64 {
 	return &f
 }
 
+// StringP returns a pointer to a defined string
+func StringP(s string) *string {
+	return &s
+}
+
 // Time is a panic wrapper for the time.Parse method
 // it returns a time.Time for the given layout and value
 func Time(layout, value string) time.Time {
