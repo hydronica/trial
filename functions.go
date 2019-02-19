@@ -38,7 +38,17 @@ func contains(x, y interface{}) differ {
 			if v, ok := y.(fmt.Stringer); ok {
 				s = v.String()
 			} else {
-				return newMessagef("type mismatch %T %T", x, y)
+				arr, ok := y.([]string)
+				if !ok {
+					return newMessagef("type mismatch %T %T", x, y)
+				}
+				v := []string{valX.String()}
+				arrI := make([]interface{}, len(arr))
+				for i, v := range arr {
+					arrI[i] = v
+				}
+				return isInSlice(reflect.ValueOf(v), arrI...)
+
 			}
 		}
 		if strings.Contains(valX.String(), s) {

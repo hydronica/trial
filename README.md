@@ -23,6 +23,12 @@ Framework to make tests easier to create, maintain and debug.
  trial.New(fn testFunc, cases map[string]trial.Case).Test(t)
 ```
 
+Alternatively to run as each case as a subtest
+
+``` go
+ trial.New(fn testFunc, cases trial.Cases).SubTest(t)
+ ```
+
 ### Case
 
 - **Input interface{}** - the input to the method being tested.
@@ -40,8 +46,6 @@ Framework to make tests easier to create, maintain and debug.
 ``` go
   TestFunc  func(args ...interface{}) (result interface{}, err error)
 ```
-
-There is no way in golang to pass a generic function as an interface{} and call the function, so we need to use some functional programming. We need to embedded the function we are testing in another function.
 
 - **args []interface{}** - the arguments to be passed as parameters to the method.
   - case to the expected type, eg args[0].(string), args[1].(int)
@@ -149,6 +153,8 @@ Checks if the expected value is *contained* in the actual value. The symbol ⊇ 
 
 - **string ⊇ string**
   - is the expected string contained in the actual string (strings.Contains)
+- **string ⊇ []string**
+  - are the expected substrings contained in the actual string
 - **[]interface{} ⊇ interface{}**
   - is the expected value found in the slice or array
 - **[]interface{} ⊇ []interface{}**

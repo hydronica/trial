@@ -60,6 +60,24 @@ func (t *Trial) EqualFn(fn EqualFunc) *Trial {
 	return t
 }
 
+// SubTest runs all cases as individual subtests
+func (t *Trial) SubTest(tst testing.TB) {
+	if h, ok := tst.(tHelper); ok {
+		h.Helper()
+	}
+
+	for msg, test := range t.cases {
+		tst.(*testing.T).Run(msg, func(tb *testing.T) {
+			r := t.testCase(msg, test)
+			if !r.Success {
+				s := strings.Replace(r.Message, "\""+msg+"\"", "", 1)
+				s = strings.Replace(s, "FAIL:", "", 1)
+				tb.Error("\033[31m" + strings.TrimLeft(s, " \n") + "\033[39m")
+			}
+		})
+	}
+}
+
 // Test all cases provided
 func (t *Trial) Test(tst testing.TB) {
 	if h, ok := tst.(tHelper); ok {

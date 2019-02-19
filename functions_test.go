@@ -165,6 +165,10 @@ func TestContainsFn(t *testing.T) {
 			Input:    Args([2]string{"hello", "world"}, "world"),
 			Expected: true,
 		},
+		"string with []string": {
+			Input:    Args("the quick brown fox jumps over the lazy dog", []string{"quick", "fox", "dog"}),
+			Expected: true,
+		},
 		"slice of ints": {
 			Input:    Args([]int{12, 3, 5}, 3),
 			Expected: true,
@@ -238,7 +242,7 @@ func TestContainsFn(t *testing.T) {
 			Input:     Args(map[string]string{}, map[string]string{"test": "a"}),
 			ShouldErr: true,
 		},
-	}).Test(t)
+	}).SubTest(t)
 }
 
 func TestCmpFuncs(t *testing.T) {
