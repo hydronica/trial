@@ -8,23 +8,38 @@ import (
 	"testing"
 )
 
+var localTest = false
+
 type (
 	// TestFunc a wrapper function used to setup the method being tested.
 	TestFunc func(args ...interface{}) (result interface{}, err error)
 
-	// EqualFunc compares actual and expected to determine equality. It should return
+	// CompareFunc compares actual and expected to determine equality. It should return
 	// a human readable string representing the differences between actual and
-	// expected.The output string may use the "-" symbol to indicate elements
-	// removed from actual, and the "+" symbol to indicate elements
-	// added to expected
-	EqualFunc func(actual, expected interface{}) (equal bool, differences string)
+	// expected.
+	// Symbols with meaning:
+	// "-" elements missing from actual
+	// "+" elements missing from expected
+	CompareFunc func(actual, expected interface{}) (equal bool, differences string)
 )
+
+// Comparer interface is implemented by an object to check for equality
+// and show any differences found
+type Comparer interface {
+	Equals(interface{}) (bool, string)
+}
+
+/*
+Alternative
+	Equals(interface{}) bool
+	Diff(interface{}) string
+*/
 
 // Trial framework used to test different logical states
 type Trial struct {
 	cases   map[string]Case
 	testFn  TestFunc
-	equalFn EqualFunc
+	equalFn CompareFunc
 }
 
 // Cases made during the trial
@@ -55,7 +70,15 @@ func New(fn TestFunc, cases map[string]Case) *Trial {
 
 // EqualFn override the default comparison method used.
 // see ContainsFn(x, y interface{}) (bool, string)
-func (t *Trial) EqualFn(fn EqualFunc) *Trial {
+// depricated
+func (t *Trial) EqualFn(fn CompareFunc) *Trial {
+	return t.Comparer(fn)
+}
+
+// Comparer override the default comparison function.
+// see Contains(x, y interface{}) (bool, string)
+// see Equals(x, y interface{}) (bool, string)
+func (t *Trial) Comparer(fn CompareFunc) *Trial {
 	t.equalFn = fn
 	return t
 }
@@ -136,9 +159,9 @@ func (t *Trial) testCase(msg string, test Case) (r result) {
 // cleanStack removes unhelpful lines from a panic stack track
 func cleanStack() (s string) {
 	for _, ln := range strings.Split(string(debug.Stack()), "\n") {
-		/* if strings.Contains(ln, "/jbsmith7741/trial") {
+		if !localTest && strings.Contains(ln, "/jbsmith7741/trial") {
 			continue
-		} */
+		}
 		if strings.Contains(ln, "go/src/runtime/debug/stack.go") {
 			continue
 		}

@@ -9,6 +9,11 @@ import (
 	"github.com/google/go-cmp/cmp"
 )
 
+func TestMain(t *testing.M) {
+	localTest = true
+	t.Run()
+	localTest = false
+}
 func TestTrial_TestCase(t *testing.T) {
 	divideFn := func(args ...interface{}) (interface{}, error) {
 		return func(a, b int) (int, error) {
