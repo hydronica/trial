@@ -163,7 +163,7 @@ Checks if the expected value is *contained* in the actual value. The symbol ⊇ 
   - is the expected map a subset of the actual map. all keys in expected are in actual and all values under that key are contained in actual
 
 ## Helper Functions
-The helper function are convince methods for either ignore errors for test setup or with capture output for testing.
+The helper functions are convince methods for either ignoring errors on test setup or for capturing output for testing.
 
 ### Output Capturing
   Capture output written to log, stdout or stderr.
@@ -216,6 +216,9 @@ convenience functions for initializing a pointer to a basic type
 
 - int pointer
   - IntP, Int8P, Int16P, Int32P, Int64P
+- uint pointer
+  - UintP, Uint8P, Uint16P, Uint32P, Uint64P
+- bool pointer - BoolP
 - float pointer
   - Float32P, Float64P
 - string pointer - StringP

@@ -35,6 +35,31 @@ func Int64P(i int64) *int64 {
 	return &i
 }
 
+// UintP returns a pointer to a defined uint
+func UintP(i uint) *uint {
+	return &i
+}
+
+// Uint8P returns a pointer to a defined uint8
+func Uint8P(i uint8) *uint8 {
+	return &i
+}
+
+// Uint16P returns a pointer to a defined uint16
+func Uint16P(i uint16) *uint16 {
+	return &i
+}
+
+// Uint32P returns a pointer to a defined uint32
+func Uint32P(i uint32) *uint32 {
+	return &i
+}
+
+// Uint64P returns a pointer to a defined uint64
+func Uint64P(i uint64) *uint64 {
+	return &i
+}
+
 // Float32P returns a pointer to a defined float32
 func Float32P(f float32) *float32 {
 	return &f
@@ -43,6 +68,11 @@ func Float32P(f float32) *float32 {
 // Float64P returns a pointer to a defined float64
 func Float64P(f float64) *float64 {
 	return &f
+}
+
+// BoolP returns a pointer to a defined bool
+func BoolP(b bool) *bool {
+	return &b
 }
 
 // StringP returns a pointer to a defined string
