@@ -2,45 +2,64 @@ package trial
 
 import "reflect"
 
-type TestFunc2 func(in Input) (result interface{}, err error)
-
-// Input is the input value given to the test struct
+// Input the input value given to the trial test function
 type Input struct {
-	value interface{}
+	value reflect.Value
 }
 
+func newInput(i interface{}) Input {
+	return Input{value: reflect.ValueOf(i)}
+}
+
+// String value of input, panics on on non string value
 func (in Input) String() string {
-	return in.value.(string)
+	// todo: should all types be cast to their string value?
+	return in.value.Interface().(string)
 }
 
+// Bool value of input, panics on non bool value
 func (in Input) Bool() bool {
-	return in.value.(bool)
+	return in.value.Bool()
 }
 
+// Int value of input, panics on non int value
 func (in Input) Int() int {
-	return in.value.(int)
+	return int(in.value.Int())
 }
 
+// Uint value of input, panics on non uint value
 func (in Input) Uint() uint {
-	return in.value.(uint)
+	switch in.value.Kind() {
+	case reflect.Int:
+		return uint(in.value.Int())
+	default:
+		return uint(in.value.Uint())
+	}
 }
 
+// Interface returns the current value of input
 func (in Input) Interface() interface{} {
-	return in.value
+	return in.value.Interface()
 }
 
+// Float64 value of input, panics on non float64 value
 func (in Input) Float64() float64 {
-	return in.value.(float64)
+	switch in.value.Kind() {
+	case reflect.Int:
+		return float64(in.value.Int())
+	default:
+		return in.value.Float()
+	}
 }
 
+// Slice returns the input value of the index of a slice/array. panics if non slice value
 func (in Input) Slice(i int) Input {
 	// use reflect to access any slice type []int, etc
-	v := reflect.ValueOf(in.value)
-	return Input{value: v.Index(i).Interface()}
+	return Input{value: in.value.Index(i)}
 }
 
+// Map returns the value for the provided key, panics on non map value
 func (in Input) Map(key interface{}) Input {
 	// use reflection to access any map type map[string]string, etc
-	v := reflect.ValueOf(in.value)
-	return Input{value: v.MapIndex(reflect.ValueOf(key)).Interface()}
+	return Input{value: in.value.MapIndex(reflect.ValueOf(key))}
 }

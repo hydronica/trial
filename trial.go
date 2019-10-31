@@ -12,7 +12,7 @@ var localTest = false
 
 type (
 	// TestFunc a wrapper function used to setup the method being tested.
-	TestFunc func(args ...interface{}) (result interface{}, err error)
+	TestFunc func(in Input) (result interface{}, err error)
 
 	// CompareFunc compares actual and expected to determine equality. It should return
 	// a human readable string representing the differences between actual and
@@ -70,7 +70,7 @@ func New(fn TestFunc, cases map[string]Case) *Trial {
 
 // EqualFn override the default comparison method used.
 // see ContainsFn(x, y interface{}) (bool, string)
-// depricated
+// deprecated
 func (t *Trial) EqualFn(fn CompareFunc) *Trial {
 	return t.Comparer(fn)
 }
@@ -128,13 +128,7 @@ func (t *Trial) testCase(msg string, test Case) (r result) {
 			r = pass("PASS: %q", msg)
 		}
 	}()
-	var err error
-	var result interface{}
-	if inputs, ok := test.Input.([]interface{}); ok {
-		result, err = t.testFn(inputs...)
-	} else {
-		result, err = t.testFn(test.Input)
-	}
+	result, err := t.testFn(newInput(test.Input))
 
 	if (test.ShouldErr && err == nil) || (test.ExpectedErr != nil && err == nil) {
 		finished = true
