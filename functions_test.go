@@ -18,8 +18,8 @@ func TestEqualFn(t *testing.T) {
 		parent *parent
 		t      time.Time
 	}
-	fn := func(args ...interface{}) (interface{}, error) {
-		r, _ := Equal(args[0], args[1])
+	fn := func(in Input) (interface{}, error) {
+		r, _ := Equal(in.Slice(0).Interface(), in.Slice(1).Interface())
 		return r, nil
 	}
 	cases := Cases{"strings are equal": {
@@ -110,8 +110,8 @@ func TestEqualFn(t *testing.T) {
 }
 
 func TestContainsFn(t *testing.T) {
-	New(func(args ...interface{}) (interface{}, error) {
-		b, s := ContainsFn(args[0], args[1])
+	New(func(in Input) (interface{}, error) {
+		b, s := ContainsFn(in.Slice(0).Interface(), in.Slice(1).Interface())
 		var err error
 		if s != "" {
 			err = errors.New(s)
@@ -246,8 +246,8 @@ func TestContainsFn(t *testing.T) {
 }
 
 func TestCmpFuncs(t *testing.T) {
-	fn := func(args ...interface{}) (interface{}, error) {
-		_, s := CmpFuncs(args[0], args[1])
+	fn := func(in Input) (interface{}, error) {
+		_, s := CmpFuncs(in.Slice(0).Interface(), in.Slice(1).Interface())
 		return s, nil
 	}
 	New(fn, Cases{

@@ -15,23 +15,23 @@ func TestMain(t *testing.M) {
 	localTest = false
 }
 func TestTrial_TestCase(t *testing.T) {
-	divideFn := func(args ...interface{}) (interface{}, error) {
+	divideFn := func(in Input) (interface{}, error) {
 		return func(a, b int) (int, error) {
 			if b == 0 {
 				return 0, errors.New("divide by zero")
 			}
 			return a / b, nil
-		}(args[0].(int), args[1].(int))
+		}(in.Slice(0).Int(), in.Slice(1).Int())
 	}
 
-	panicFn := func(args ...interface{}) (interface{}, error) {
+	panicFn := func(in Input) (interface{}, error) {
 		return func(s string) string {
 			t, err := time.Parse(time.RFC3339, s)
 			if err != nil {
 				panic(err)
 			}
 			return t.Format("2006-01-02")
-		}(args[0].(string)), nil
+		}(in.String()), nil
 	}
 
 	cases := map[string]struct {
@@ -94,7 +94,7 @@ func TestTrial_TestCase(t *testing.T) {
 			expResult: result{false, `PANIC: "parse time with unexpected panic" parsing time "invalid" as "2006-01-02T15:04:05Z07:00": cannot parse "invalid" as "2006"`},
 		},
 		"expected panic did not occur": {
-			trial: New(func(args ...interface{}) (interface{}, error) {
+			trial: New(func(Input) (interface{}, error) {
 				return nil, nil
 			}, nil),
 			Case: Case{
@@ -103,7 +103,7 @@ func TestTrial_TestCase(t *testing.T) {
 			expResult: result{false, `FAIL: "expected panic did not occur" did not panic`},
 		},
 		"test should error but no error occurred": {
-			trial: New(func(args ...interface{}) (interface{}, error) {
+			trial: New(func(Input) (interface{}, error) {
 				return nil, nil
 			}, nil),
 			Case: Case{
@@ -112,7 +112,7 @@ func TestTrial_TestCase(t *testing.T) {
 			expResult: result{false, `FAIL: "test should error but no error occurred" should error`},
 		},
 		"expected error string match": {
-			trial: New(func(args ...interface{}) (interface{}, error) {
+			trial: New(func(Input) (interface{}, error) {
 				return nil, errors.New("test error")
 			}, nil),
 			Case: Case{
@@ -129,7 +129,7 @@ func TestTrial_TestCase(t *testing.T) {
 			expResult: result{false, `FAIL: "expected error string does not match" error "divide by zero" does not match expected "test error"`},
 		},
 		"expected error of type testErr": {
-			trial: New(func(args ...interface{}) (interface{}, error) {
+			trial: New(func(Input) (interface{}, error) {
 				return nil, testErr{}
 			}, nil),
 			Case: Case{
@@ -138,7 +138,7 @@ func TestTrial_TestCase(t *testing.T) {
 			expResult: result{true, `PASS: "expected error of type testErr"`},
 		},
 		"error type testErr with nil response": {
-			trial: New(func(args ...interface{}) (interface{}, error) {
+			trial: New(func(Input) (interface{}, error) {
 				return nil, nil
 			}, nil),
 			Case: Case{
@@ -147,7 +147,7 @@ func TestTrial_TestCase(t *testing.T) {
 			expResult: result{false, `FAIL: "error type testErr with nil response"`},
 		},
 		"error type testErr with mismatch response": {
-			trial: New(func(args ...interface{}) (interface{}, error) {
+			trial: New(func(Input) (interface{}, error) {
 				return nil, errors.New("some error")
 			}, nil),
 			Case: Case{
@@ -170,4 +170,89 @@ type testErr struct{}
 
 func (e testErr) Error() string {
 	return ""
+}
+
+func TestInput(t *testing.T) {
+	type tester struct {
+		shouldPanic bool
+		fn          func() interface{}
+		expected    interface{}
+	}
+	cases := map[string]tester{
+		"string": tester{
+			fn:       func() interface{} { return newInput("hello world").String() },
+			expected: "hello world",
+		},
+		"string panic": tester{
+			fn:          func() interface{} { return newInput(12).String() },
+			shouldPanic: true,
+		},
+		"bool": {
+			fn:       func() interface{} { return newInput(true).Bool() },
+			expected: true,
+		},
+		"int": {
+			fn:       func() interface{} { return newInput(12).Int() },
+			expected: 12,
+		},
+		"uint": {
+			fn:       func() interface{} { return newInput(12).Uint() },
+			expected: uint(12),
+		},
+		"float64": {
+			fn:       func() interface{} { return newInput(12.4).Float64() },
+			expected: 12.4,
+		},
+		"float64 (float32)": {
+			fn:       func() interface{} { return newInput(float32(12.4)).Float64() },
+			expected: 12.399999618530273,
+		},
+		"float64 (int)": {
+			fn:       func() interface{} { return newInput(12).Float64() },
+			expected: float64(12),
+		},
+		"map[string]string": {
+			fn:       func() interface{} { return newInput(map[string]string{"abc": "def"}).Map("abc").String() },
+			expected: "def",
+		},
+		"map[int]string": {
+			fn:       func() interface{} { return newInput(map[int]string{12: "def"}).Map(12).String() },
+			expected: "def",
+		},
+		"map[interface]interface": {
+			fn:       func() interface{} { return newInput(map[interface{}]interface{}{12: "def"}).Map(12).String() },
+			expected: "def",
+		},
+		"[]string": {
+			fn:       func() interface{} { return newInput([]string{"ab", "cd", "ef", "g"}).Slice(2).String() },
+			expected: "ef",
+		},
+		"slice out of bounds": {
+			fn:          func() interface{} { return newInput([]string{}).Slice(2).String() },
+			shouldPanic: true,
+		},
+		"invalid type": {
+			fn:          func() interface{} { return newInput([]string{"ab", "cd", "ef", "g"}).Map(2).String() },
+			shouldPanic: true,
+		},
+	}
+	for name, in := range cases {
+		// panic wrapper
+		func() {
+			var result interface{}
+			defer func() {
+				rec := recover()
+				if rec == nil && in.shouldPanic {
+					t.Errorf("FAIL: %q should panic", name)
+				} else if rec != nil && !in.shouldPanic {
+					t.Errorf("PANIC: %q %v", name, rec)
+				} else if b, s := Equal(result, in.expected); !b {
+					t.Errorf("FAIL: %q %s", name, s)
+				} else {
+					t.Logf("Pass: %q", name)
+				}
+			}()
+			result = in.fn()
+		}()
+	}
 }

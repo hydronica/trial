@@ -1,9 +1,9 @@
 # Trial - Prove the Innocents of your code
 
-[![GoDoc](http://img.shields.io/badge/go-documentation-blue.svg?style=flat-square)](https://godoc.org/github.com/jbsmith7741/trial)
-[![Build Status](https://travis-ci.com/jbsmith7741/trial.svg?branch=master)](https://travis-ci.com/jbsmith7741/trial)
-[![Go Report Card](https://goreportcard.com/badge/github.com/jbsmith7741/trial)](https://goreportcard.com/report/github.com/jbsmith7741/trial)
-[![codecov](https://codecov.io/gh/jbsmith7741/trial/branch/master/graph/badge.svg)](https://codecov.io/gh/jbsmith7741/trial)
+[![GoDoc](http://img.shields.io/badge/go-documentation-blue.svg?style=flat-square)](https://godoc.org/github.com/hydronica/trial)
+[![Build Status](https://travis-ci.com/jbsmith7741/trial.svg?branch=master)](https://travis-ci.com/hydronica/trial)
+[![Go Report Card](https://goreportcard.com/badge/github.com/jbsmith7741/trial)](https://goreportcard.com/report/github.com/hydronica/trial)
+[![codecov](https://codecov.io/gh/jbsmith7741/trial/branch/master/graph/badge.svg)](https://codecov.io/gh/hydronica/trial)
 
 Framework to make tests easier to create, maintain and debug.
 
@@ -31,8 +31,7 @@ Alternatively to run as each case as a subtest
 
 ### Case
 
-- **Input interface{}** - the input to the method being tested.
-  - If the method has multiple parameters either embed the values in a struct or use trial.Args(args ...interface{}) to pass in multiple parameters
+- **Input struct** - a convenience wrapper around any value (map and slice support)
 - **Expected interface{}** - the expected output of the method being tested.
   - This is compared with the result from the TestFunc
 - **ShouldErr bool** - indicates the method should return an error
@@ -44,11 +43,11 @@ Alternatively to run as each case as a subtest
 ### TestFunc
 
 ``` go
-  TestFunc  func(args ...interface{}) (result interface{}, err error)
+  TestFunc  func(in Input) (result interface{}, err error)
 ```
 
-- **args []interface{}** - the arguments to be passed as parameters to the method.
-  - case to the expected type, eg args[0].(string), args[1].(int)
+- **in Input** - the arguments to be passed as parameters to the method.
+  - convert to the Input type. (String(), Int(), Bool(), Map(), Slice(), Interface())
 - **output interface{}** - the result from the test that is compared with Case.Expected
 - **err error** - any errors that occur during test, return nil if no errors occur.
 
@@ -62,8 +61,8 @@ func Add(i1, i2 int) int {
 }
 
 func TestAdd(t *testing.T) {
-  testFn := func(args ...interface{}) (interface{}, error) {
-    return Add(args[0].(int), args[1].(int), nil
+  testFn := func(in Input) (interface{}, error) {
+    return Add(in.Slice(0).Int(), in.Slice(1).Int()), nil
   }
   cases := trial.Cases{
     "Add two numbers":{
@@ -80,8 +79,8 @@ func TestAdd(t *testing.T) {
 
 ``` go
 func TestStrconv_Itoa(t *testing.T)
-testFn := func(args ...interface{}) (interface{}, error) {
-    return strconv.Itoa(args[0].(int))
+testFn := func(in Input) (interface{}, error) {
+    return strconv.Itoa(in.Int())
 }
 cases :=trial.Cases{
   "valid int":{
@@ -107,8 +106,8 @@ func Divide(i1, i2 int) int {
   return i1/i2
 }
 func TestDivide(t *testing.T) {
-  fn := func(args ...interface) (interface{}, error) {
-    return Divide(args[0].(int), args[1].(int)), nil
+  fn := func(in Input) (interface{}, error) {
+    return Divide(in.Slice(0).Int(), in.Slice(1).Int()), nil
   }
   cases := trial.Cases{
     "1/1":{
@@ -132,7 +131,7 @@ func TestDivide(t *testing.T) {
 ```
 
 ## Compare Functions
-used to compare two values to determine if they are considered equal and displayed a detailed string describing the differences found.
+used to compare two values to determine equality and displayed a detailed string describing any differences.
 
 ``` go
 func(actual, expected interface{}) (equal bool, differences string)
@@ -141,7 +140,7 @@ func(actual, expected interface{}) (equal bool, differences string)
 override the default
 
 ``` go
-trial.New(fn, cases).EqualFn(myComparer).Test(t)
+trial.New(fn, cases).Comparer(myComparer).Test(t)
 ```
 
 ### Equal
