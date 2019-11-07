@@ -183,8 +183,20 @@ func TestInput(t *testing.T) {
 			fn:       func() interface{} { return newInput("hello world").String() },
 			expected: "hello world",
 		},
+		"string (int)": tester{
+			fn:       func() interface{} { return newInput(123).String() },
+			expected: "123",
+		},
+		"string (float)": tester{
+			fn:       func() interface{} { return newInput(12.8).String() },
+			expected: "12.8",
+		},
+		"string (bool)": tester{
+			fn:       func() interface{} { return newInput(true).String() },
+			expected: "true",
+		},
 		"string panic": tester{
-			fn:          func() interface{} { return newInput(12).String() },
+			fn:          func() interface{} { return newInput(struct{}{}).String() },
 			shouldPanic: true,
 		},
 		"bool": {
@@ -224,8 +236,20 @@ func TestInput(t *testing.T) {
 			expected: "def",
 		},
 		"[]string": {
-			fn:       func() interface{} { return newInput([]string{"ab", "cd", "ef", "g"}).Slice(2).String() },
+			fn: func() interface{} {
+				in := newInput([]string{"ab", "cd", "ef", "g"})
+				in.Slice(0).String()
+				return in.Slice(2).String()
+			},
 			expected: "ef",
+		},
+		"[]int": {
+			fn: func() interface{} {
+				in := newInput([]interface{}{1, 2, 3, 4})
+				//	in.Slice(0).Int()
+				return in.Slice(2).Int()
+			},
+			expected: 3,
 		},
 		"slice out of bounds": {
 			fn:          func() interface{} { return newInput([]string{}).Slice(2).String() },
@@ -234,6 +258,10 @@ func TestInput(t *testing.T) {
 		"invalid type": {
 			fn:          func() interface{} { return newInput([]string{"ab", "cd", "ef", "g"}).Map(2).String() },
 			shouldPanic: true,
+		},
+		"nil": {
+			fn:       func() interface{} { return newInput(nil).Interface() },
+			expected: nil,
 		},
 	}
 	for name, in := range cases {

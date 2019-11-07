@@ -1,6 +1,9 @@
 package trial
 
-import "reflect"
+import (
+	"fmt"
+	"reflect"
+)
 
 // Input the input value given to the trial test function
 type Input struct {
@@ -14,7 +17,12 @@ func newInput(i interface{}) Input {
 // String value of input, panics on on non string value
 func (in Input) String() string {
 	// todo: should all types be cast to their string value?
-	return in.value.Interface().(string)
+	switch in.value.Kind() {
+	case reflect.Struct, reflect.Ptr, reflect.Slice, reflect.Map, reflect.Array, reflect.Chan:
+		panic("unsupported string conversion " + in.value.Kind().String())
+	default:
+		return fmt.Sprintf("%v", in.Interface())
+	}
 }
 
 // Bool value of input, panics on non bool value
@@ -39,6 +47,10 @@ func (in Input) Uint() uint {
 
 // Interface returns the current value of input
 func (in Input) Interface() interface{} {
+	//TODO: check for nil
+	if in.value.Kind() == reflect.Invalid {
+		return nil
+	}
 	return in.value.Interface()
 }
 
@@ -55,7 +67,11 @@ func (in Input) Float64() float64 {
 // Slice returns the input value of the index of a slice/array. panics if non slice value
 func (in Input) Slice(i int) Input {
 	// use reflect to access any slice type []int, etc
-	return Input{value: in.value.Index(i)}
+	v := in.value.Index(i)
+	if v.Kind() == reflect.Interface {
+		return Input{value: reflect.ValueOf(v.Interface())}
+	}
+	return Input{value: v}
 }
 
 // Map returns the value for the provided key, panics on non map value
