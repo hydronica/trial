@@ -183,20 +183,55 @@ func TestInput(t *testing.T) {
 			fn:       func() interface{} { return newInput("hello world").String() },
 			expected: "hello world",
 		},
+		"string (int)": tester{
+			fn:       func() interface{} { return newInput(123).String() },
+			expected: "123",
+		},
+		"string (float)": tester{
+			fn:       func() interface{} { return newInput(12.8).String() },
+			expected: "12.8",
+		},
+		"string (bool)": tester{
+			fn:       func() interface{} { return newInput(true).String() },
+			expected: "true",
+		},
 		"string panic": tester{
-			fn:          func() interface{} { return newInput(12).String() },
+			fn:          func() interface{} { return newInput(struct{}{}).String() },
 			shouldPanic: true,
 		},
 		"bool": {
 			fn:       func() interface{} { return newInput(true).Bool() },
 			expected: true,
 		},
+		"bool (string)": {
+			fn: func() interface{} {
+				newInput("false").Bool()
+				return newInput("true").Bool()
+			},
+			expected: true,
+		},
+		"bool (invalid)": {
+			fn:          func() interface{} { return newInput("abc").Bool() },
+			shouldPanic: true,
+		},
 		"int": {
 			fn:       func() interface{} { return newInput(12).Int() },
 			expected: 12,
 		},
+		"int (string)": {
+			fn:       func() interface{} { return newInput("12").Int() },
+			expected: 12,
+		},
+		"int (invalid)": {
+			fn:          func() interface{} { return newInput("abc").Int() },
+			shouldPanic: true,
+		},
 		"uint": {
 			fn:       func() interface{} { return newInput(12).Uint() },
+			expected: uint(12),
+		},
+		"uint (string)": {
+			fn:       func() interface{} { return newInput("12").Uint() },
 			expected: uint(12),
 		},
 		"float64": {
@@ -211,6 +246,10 @@ func TestInput(t *testing.T) {
 			fn:       func() interface{} { return newInput(12).Float64() },
 			expected: float64(12),
 		},
+		"float64 (string)": {
+			fn:       func() interface{} { return newInput("12.5").Float64() },
+			expected: 12.5,
+		},
 		"map[string]string": {
 			fn:       func() interface{} { return newInput(map[string]string{"abc": "def"}).Map("abc").String() },
 			expected: "def",
@@ -224,8 +263,20 @@ func TestInput(t *testing.T) {
 			expected: "def",
 		},
 		"[]string": {
-			fn:       func() interface{} { return newInput([]string{"ab", "cd", "ef", "g"}).Slice(2).String() },
+			fn: func() interface{} {
+				in := newInput([]string{"ab", "cd", "ef", "g"})
+				in.Slice(0).String()
+				return in.Slice(2).String()
+			},
 			expected: "ef",
+		},
+		"[]int": {
+			fn: func() interface{} {
+				in := newInput([]interface{}{1, 2, 3, 4})
+				in.Slice(0).Int()
+				return in.Slice(2).Int()
+			},
+			expected: 3,
 		},
 		"slice out of bounds": {
 			fn:          func() interface{} { return newInput([]string{}).Slice(2).String() },
@@ -235,24 +286,26 @@ func TestInput(t *testing.T) {
 			fn:          func() interface{} { return newInput([]string{"ab", "cd", "ef", "g"}).Map(2).String() },
 			shouldPanic: true,
 		},
+		"nil": {
+			fn:       func() interface{} { return newInput(nil).Interface() },
+			expected: nil,
+		},
 	}
 	for name, in := range cases {
 		// panic wrapper
-		func() {
+		t.Run(name, func(t *testing.T) {
 			var result interface{}
 			defer func() {
 				rec := recover()
 				if rec == nil && in.shouldPanic {
-					t.Errorf("FAIL: %q should panic", name)
+					t.Error("FAIL: should panic")
 				} else if rec != nil && !in.shouldPanic {
-					t.Errorf("PANIC: %q %v", name, rec)
+					t.Errorf("PANIC: %v", rec)
 				} else if b, s := Equal(result, in.expected); !b {
-					t.Errorf("FAIL: %q %s", name, s)
-				} else {
-					t.Logf("Pass: %q", name)
+					t.Errorf("FAIL: %s", s)
 				}
 			}()
 			result = in.fn()
-		}()
+		})
 	}
 }

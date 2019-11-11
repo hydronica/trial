@@ -31,7 +31,8 @@ Alternatively to run as each case as a subtest
 
 ### Case
 
-- **Input struct** - a convenience wrapper around any value (map and slice support)
+- **Input struct** - a convenience structure to handle input more dynamically 
+  - Smart type conversion were possible ("12" can be converted to int)
 - **Expected interface{}** - the expected output of the method being tested.
   - This is compared with the result from the TestFunc
 - **ShouldErr bool** - indicates the method should return an error
