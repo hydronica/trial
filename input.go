@@ -3,6 +3,7 @@ package trial
 import (
 	"fmt"
 	"reflect"
+	"strconv"
 )
 
 // Input the input value given to the trial test function
@@ -16,7 +17,6 @@ func newInput(i interface{}) Input {
 
 // String value of input, panics on on non string value
 func (in Input) String() string {
-	// todo: should all types be cast to their string value?
 	switch in.value.Kind() {
 	case reflect.Struct, reflect.Ptr, reflect.Slice, reflect.Map, reflect.Array, reflect.Chan:
 		panic("unsupported string conversion " + in.value.Kind().String())
@@ -27,11 +27,26 @@ func (in Input) String() string {
 
 // Bool value of input, panics on non bool value
 func (in Input) Bool() bool {
+	if in.value.Kind() == reflect.String {
+		b, err := strconv.ParseBool(in.value.String())
+		if err != nil {
+			panic("invalid bool " + in.value.Interface().(string))
+		}
+		return b
+	}
 	return in.value.Bool()
 }
 
 // Int value of input, panics on non int value
 func (in Input) Int() int {
+	switch in.value.Kind() {
+	case reflect.String:
+		i, err := strconv.Atoi(in.value.String())
+		if err != nil {
+			panic("invalid int " + in.value.Interface().(string))
+		}
+		return i
+	}
 	return int(in.value.Int())
 }
 
@@ -40,6 +55,12 @@ func (in Input) Uint() uint {
 	switch in.value.Kind() {
 	case reflect.Int:
 		return uint(in.value.Int())
+	case reflect.String:
+		u, err := strconv.ParseUint(in.value.String(), 10, 64)
+		if err != nil {
+			panic("invalid uint " + in.value.Interface().(string))
+		}
+		return uint(u)
 	default:
 		return uint(in.value.Uint())
 	}
@@ -59,6 +80,12 @@ func (in Input) Float64() float64 {
 	switch in.value.Kind() {
 	case reflect.Int:
 		return float64(in.value.Int())
+	case reflect.String:
+		f, err := strconv.ParseFloat(in.value.String(), 64)
+		if err != nil {
+			panic("invalid float64 " + in.value.Interface().(string))
+		}
+		return f
 	default:
 		return in.value.Float()
 	}

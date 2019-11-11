@@ -203,12 +203,35 @@ func TestInput(t *testing.T) {
 			fn:       func() interface{} { return newInput(true).Bool() },
 			expected: true,
 		},
+		"bool (string)": {
+			fn: func() interface{} {
+				newInput("false").Bool()
+				return newInput("true").Bool()
+			},
+			expected: true,
+		},
+		"bool (invalid)": {
+			fn:          func() interface{} { return newInput("abc").Bool() },
+			shouldPanic: true,
+		},
 		"int": {
 			fn:       func() interface{} { return newInput(12).Int() },
 			expected: 12,
 		},
+		"int (string)": {
+			fn:       func() interface{} { return newInput("12").Int() },
+			expected: 12,
+		},
+		"int (invalid)": {
+			fn:          func() interface{} { return newInput("abc").Int() },
+			shouldPanic: true,
+		},
 		"uint": {
 			fn:       func() interface{} { return newInput(12).Uint() },
+			expected: uint(12),
+		},
+		"uint (string)": {
+			fn:       func() interface{} { return newInput("12").Uint() },
 			expected: uint(12),
 		},
 		"float64": {
@@ -222,6 +245,10 @@ func TestInput(t *testing.T) {
 		"float64 (int)": {
 			fn:       func() interface{} { return newInput(12).Float64() },
 			expected: float64(12),
+		},
+		"float64 (string)": {
+			fn:       func() interface{} { return newInput("12.5").Float64() },
+			expected: 12.5,
 		},
 		"map[string]string": {
 			fn:       func() interface{} { return newInput(map[string]string{"abc": "def"}).Map("abc").String() },
@@ -246,7 +273,7 @@ func TestInput(t *testing.T) {
 		"[]int": {
 			fn: func() interface{} {
 				in := newInput([]interface{}{1, 2, 3, 4})
-				//	in.Slice(0).Int()
+				in.Slice(0).Int()
 				return in.Slice(2).Int()
 			},
 			expected: 3,
@@ -266,21 +293,19 @@ func TestInput(t *testing.T) {
 	}
 	for name, in := range cases {
 		// panic wrapper
-		func() {
+		t.Run(name, func(t *testing.T) {
 			var result interface{}
 			defer func() {
 				rec := recover()
 				if rec == nil && in.shouldPanic {
-					t.Errorf("FAIL: %q should panic", name)
+					t.Error("FAIL: should panic")
 				} else if rec != nil && !in.shouldPanic {
-					t.Errorf("PANIC: %q %v", name, rec)
+					t.Errorf("PANIC: %v", rec)
 				} else if b, s := Equal(result, in.expected); !b {
-					t.Errorf("FAIL: %q %s", name, s)
-				} else {
-					t.Logf("Pass: %q", name)
+					t.Errorf("FAIL: %s", s)
 				}
 			}()
 			result = in.fn()
-		}()
+		})
 	}
 }
