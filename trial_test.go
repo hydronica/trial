@@ -68,7 +68,7 @@ func TestTrial_TestCase(t *testing.T) {
 				Input:    []interface{}{10, 2},
 				Expected: 10,
 			},
-			expResult: result{false, "FAIL: \"10/2 - unexpected result\" \n{int}:\n\t-: 5\n\t+: 10\n"},
+			expResult: result{false, "FAIL: \"10/2 - unexpected result\""},
 		},
 		"parse time": {
 			trial: New(panicFn, nil),
