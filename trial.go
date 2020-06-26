@@ -1,11 +1,13 @@
 package trial
 
 import (
+	"context"
 	"fmt"
 	"reflect"
 	"runtime/debug"
 	"strings"
 	"testing"
+	"time"
 )
 
 var localTest = false
@@ -29,17 +31,12 @@ type Comparer interface {
 	Equals(interface{}) (bool, string)
 }
 
-/*
-Alternative
-	Equals(interface{}) bool
-	Diff(interface{}) string
-*/
-
 // Trial framework used to test different logical states
 type Trial struct {
 	cases   map[string]Case
 	testFn  TestFunc
 	equalFn CompareFunc
+	timeout time.Duration
 }
 
 // Cases made during the trial
@@ -101,6 +98,13 @@ func (t *Trial) SubTest(tst testing.TB) {
 	}
 }
 
+// Timeout will make sure that a test case has finished
+// within the timeout or the test will fail.
+func (t *Trial) Timeout(d time.Duration) *Trial {
+	t.timeout = d
+	return t
+}
+
 // Test all cases provided
 func (t *Trial) Test(tst testing.TB) {
 	if h, ok := tst.(tHelper); ok {
@@ -116,44 +120,62 @@ func (t *Trial) Test(tst testing.TB) {
 	}
 }
 
-func (t *Trial) testCase(msg string, test Case) (r result) {
-	var finished bool
-	defer func() {
-		rec := recover()
-		if rec == nil && test.ShouldPanic {
-			r = fail("FAIL: %q did not panic", msg)
-		} else if rec != nil && !test.ShouldPanic {
-			r = fail("PANIC: %q %v\n%s", msg, rec, cleanStack())
-		} else if !finished {
-			r = pass("PASS: %q", msg)
-		}
-	}()
-	result, err := t.testFn(newInput(test.Input))
-
-	if (test.ShouldErr && err == nil) || (test.ExpectedErr != nil && err == nil) {
-		finished = true
-		return fail("FAIL: %q should error", msg)
-	} else if !test.ShouldErr && err != nil && test.ExpectedErr == nil {
-		finished = true
-		return fail("FAIL: %q unexpected error '%s'", msg, err.Error())
-	} else if test.ExpectedErr != nil && !isExpectedError(err, test.ExpectedErr) {
-		finished = true
-		return fail("FAIL: %q error %q does not match expected %q", msg, err, test.ExpectedErr)
-	} else if !test.ShouldErr && test.ExpectedErr == nil {
-		if equal, diff := t.equalFn(result, test.Expected); !equal {
-			finished = true
-			return fail("FAIL: %q \n%s", msg, diff)
-		}
-		finished = true
-		return pass("PASS: %q", msg)
+func (t *Trial) testCase(msg string, test Case) result {
+	// setup
+	done := make(chan *result)
+	ctx := context.Background()
+	if t.timeout > time.Nanosecond {
+		ctx, _ = context.WithTimeout(context.Background(), t.timeout)
 	}
-	return pass("PASS: %q", msg)
+	// run the test function
+	go func() {
+		r := &result{}
+		defer func() { // panic recovery and check
+			rec := recover()
+			r.panicCheck = rec != nil
+			if rec == nil && test.ShouldPanic {
+				r.fail("FAIL: %q did not panic", msg)
+				r.panicCheck = true
+			} else if rec != nil && !test.ShouldPanic {
+				r.fail("PANIC: %q %v\n%s", msg, rec, cleanStack())
+			} else {
+				r.pass("PASS: %q", msg)
+			}
+			done <- r // send result to channel
+		}()
+		r.value, r.err = t.testFn(newInput(test.Input))
+	}()
+	result := &result{}
+	select {
+	case result = <-done:
+		if result.panicCheck {
+			return *result
+		}
+	case <-ctx.Done():
+		result.fail("FAIL: %q timeout after %s", msg, t.timeout.String())
+		return *result
+	}
+
+	if (test.ShouldErr && result.err == nil) || (test.ExpectedErr != nil && result.err == nil) {
+		result.fail("FAIL: %q should error", msg)
+	} else if !test.ShouldErr && result.err != nil && test.ExpectedErr == nil {
+		result.fail("FAIL: %q unexpected error '%s'", msg, result.err.Error())
+	} else if test.ExpectedErr != nil && !isExpectedError(result.err, test.ExpectedErr) {
+		result.fail("FAIL: %q error %q does not match expected %q", msg, result.err, test.ExpectedErr)
+	} else if !test.ShouldErr && test.ExpectedErr == nil {
+		if equal, diff := t.equalFn(result.value, test.Expected); !equal {
+			result.fail("FAIL: %q \n%s", msg, diff)
+		} else {
+			result.pass("PASS: %q", msg)
+		}
+	}
+	return *result
 }
 
 // cleanStack removes unhelpful lines from a panic stack track
 func cleanStack() (s string) {
 	for _, ln := range strings.Split(string(debug.Stack()), "\n") {
-		if !localTest && strings.Contains(ln, "/jbsmith7741/trial") {
+		if !localTest && strings.Contains(ln, "/hydronica/trial") {
 			continue
 		}
 		if strings.Contains(ln, "go/src/runtime/debug/stack.go") {
@@ -189,22 +211,27 @@ func ErrType(err error) error {
 }
 
 type result struct {
-	Success bool
-	Message string
+	Success    bool
+	Message    string
+	value      interface{}
+	err        error
+	panicCheck bool
 }
 
-func pass(format string, args ...interface{}) result {
-	return result{
-		Success: true,
-		Message: fmt.Sprintf(format, args...),
-	}
+func (r *result) pass(format string, args ...interface{}) {
+	r.Success = true
+	r.Message = fmt.Sprintf(format, args...)
 }
 
-func fail(format string, args ...interface{}) result {
-	return result{
-		Success: false,
-		Message: fmt.Sprintf(format, args...),
-	}
+func (r *result) fail(format string, args ...interface{}) {
+	r.Success = false
+	r.Message = fmt.Sprintf(format, args...)
+}
+
+func (r result) string() string {
+	return fmt.Sprintf("{Success: %v, Message: %s, value: %v, err: %v, paniced: %v}",
+		r.Success, r.Message, r.value, r.err, r.panicCheck)
+
 }
 
 type tHelper interface {

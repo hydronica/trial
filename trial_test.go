@@ -5,8 +5,6 @@ import (
 	"strings"
 	"testing"
 	"time"
-
-	"github.com/google/go-cmp/cmp"
 )
 
 func TestMain(t *testing.M) {
@@ -45,7 +43,7 @@ func TestTrial_TestCase(t *testing.T) {
 				Input:    []interface{}{1, 1},
 				Expected: 1,
 			},
-			expResult: result{true, `PASS: "1/1 - pass case"`},
+			expResult: result{Success: true, Message: `PASS: "1/1 - pass case"`},
 		},
 		"1/0 - error check": {
 			trial: New(divideFn, nil),
@@ -53,14 +51,14 @@ func TestTrial_TestCase(t *testing.T) {
 				Input:     []interface{}{1, 0},
 				ShouldErr: true,
 			},
-			expResult: result{true, `PASS: "1/0 - error check"`},
+			expResult: result{Success: true, Message: `PASS: "1/0 - error check"`},
 		},
 		"1/0 - unexpected error": {
 			trial: New(divideFn, nil),
 			Case: Case{
 				Input: []interface{}{1, 0},
 			},
-			expResult: result{false, `FAIL: "1/0 - unexpected error" unexpected error 'divide by zero'`},
+			expResult: result{Success: false, Message: `FAIL: "1/0 - unexpected error" unexpected error 'divide by zero'`},
 		},
 		"10/2 - unexpected result": {
 			trial: New(divideFn, nil),
@@ -68,7 +66,7 @@ func TestTrial_TestCase(t *testing.T) {
 				Input:    []interface{}{10, 2},
 				Expected: 10,
 			},
-			expResult: result{false, "FAIL: \"10/2 - unexpected result\""},
+			expResult: result{Success: false, Message: "FAIL: \"10/2 - unexpected result\""},
 		},
 		"parse time": {
 			trial: New(panicFn, nil),
@@ -76,7 +74,7 @@ func TestTrial_TestCase(t *testing.T) {
 				Input:    "2018-01-02T00:00:00Z",
 				Expected: "2018-01-02",
 			},
-			expResult: result{true, `PASS: "parse time"`},
+			expResult: result{Success: true, Message: `PASS: "parse time"`},
 		},
 		"parse time with panic": {
 			trial: New(panicFn, nil),
@@ -84,14 +82,14 @@ func TestTrial_TestCase(t *testing.T) {
 				Input:       "invalid",
 				ShouldPanic: true,
 			},
-			expResult: result{true, `PASS: "parse time with panic"`},
+			expResult: result{Success: true, Message: `PASS: "parse time with panic"`},
 		},
 		"parse time with unexpected panic": {
 			trial: New(panicFn, nil),
 			Case: Case{
 				Input: "invalid",
 			},
-			expResult: result{false, `PANIC: "parse time with unexpected panic" parsing time "invalid" as "2006-01-02T15:04:05Z07:00": cannot parse "invalid" as "2006"`},
+			expResult: result{Success: false, Message: `PANIC: "parse time with unexpected panic" parsing time "invalid" as "2006-01-02T15:04:05Z07:00": cannot parse "invalid" as "2006"`},
 		},
 		"expected panic did not occur": {
 			trial: New(func(Input) (interface{}, error) {
@@ -100,7 +98,7 @@ func TestTrial_TestCase(t *testing.T) {
 			Case: Case{
 				ShouldPanic: true,
 			},
-			expResult: result{false, `FAIL: "expected panic did not occur" did not panic`},
+			expResult: result{Success: false, Message: `FAIL: "expected panic did not occur" did not panic`},
 		},
 		"test should error but no error occurred": {
 			trial: New(func(Input) (interface{}, error) {
@@ -109,7 +107,7 @@ func TestTrial_TestCase(t *testing.T) {
 			Case: Case{
 				ShouldErr: true,
 			},
-			expResult: result{false, `FAIL: "test should error but no error occurred" should error`},
+			expResult: result{Success: false, Message: `FAIL: "test should error but no error occurred" should error`},
 		},
 		"expected error string match": {
 			trial: New(func(Input) (interface{}, error) {
@@ -118,7 +116,7 @@ func TestTrial_TestCase(t *testing.T) {
 			Case: Case{
 				ExpectedErr: errors.New("test error"),
 			},
-			expResult: result{true, `PASS: "expected error string match"`},
+			expResult: result{Success: true, Message: `PASS: "expected error string match"`},
 		},
 		"expected error string does not match": {
 			trial: New(divideFn, nil),
@@ -126,7 +124,7 @@ func TestTrial_TestCase(t *testing.T) {
 				Input:       Args(10, 0),
 				ExpectedErr: errors.New("test error"),
 			},
-			expResult: result{false, `FAIL: "expected error string does not match" error "divide by zero" does not match expected "test error"`},
+			expResult: result{Success: false, Message: `FAIL: "expected error string does not match" error "divide by zero" does not match expected "test error"`},
 		},
 		"expected error of type testErr": {
 			trial: New(func(Input) (interface{}, error) {
@@ -135,7 +133,7 @@ func TestTrial_TestCase(t *testing.T) {
 			Case: Case{
 				ExpectedErr: ErrType(testErr{}),
 			},
-			expResult: result{true, `PASS: "expected error of type testErr"`},
+			expResult: result{Success: true, Message: `PASS: "expected error of type testErr"`},
 		},
 		"error type testErr with nil response": {
 			trial: New(func(Input) (interface{}, error) {
@@ -144,7 +142,7 @@ func TestTrial_TestCase(t *testing.T) {
 			Case: Case{
 				ExpectedErr: ErrType(testErr{}),
 			},
-			expResult: result{false, `FAIL: "error type testErr with nil response"`},
+			expResult: result{Success: false, Message: `FAIL: "error type testErr with nil response"`},
 		},
 		"error type testErr with mismatch response": {
 			trial: New(func(Input) (interface{}, error) {
@@ -153,13 +151,23 @@ func TestTrial_TestCase(t *testing.T) {
 			Case: Case{
 				ExpectedErr: ErrType(testErr{}),
 			},
-			expResult: result{false, `FAIL: "error type testErr with mismatch response"`},
+			expResult: result{Success: false, Message: `FAIL: "error type testErr with mismatch response"`},
+		},
+		"timeout error": {
+			trial: New(func(Input) (interface{}, error) {
+				time.Sleep(time.Second)
+				return nil, nil
+			}, nil).Timeout(time.Millisecond),
+			Case: Case{
+				ExpectedErr: errors.New("timeout"),
+			},
+			expResult: result{Success: false, Message: `FAIL: "timeout error" timeout after 1ms`},
 		},
 	}
 	for msg, test := range cases {
 		r := test.trial.testCase(msg, test.Case)
 		if r.Success != test.expResult.Success || !strings.Contains(r.Message, test.expResult.Message) {
-			t.Errorf("FAIL: %q %v", msg, cmp.Diff(r, test.expResult))
+			t.Errorf("\033[31mFAIL: %q\n%v\033[39m", msg, r.string())
 		} else {
 			t.Logf("PASS: %q", msg)
 		}
