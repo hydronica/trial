@@ -11,9 +11,28 @@ Framework to make tests easier to create, maintain and debug.
 
 - Tests should be written as [Table Driven Tests](https://github.com/golang/go/wiki/TableDrivenTests) with defined inputs and outputs
 - Each case must have a unique description
+- Tests should be easy to read and change 
+- Test shouldn't take too long to complete
 - Each case should be fully isolated
   - doesn't depend on previous cases running
   - order of cases shouldn't matter
+
+## Features 
+ - test that a function functions as expected. 
+    - Check results for exact matches including private values (default behavior) 
+    - Check results for values contained in others (see Contains function) 
+    - Allows for custom compare functions 
+  - Catch and test for panics 
+    - each test is self isolated so a panic won't stop other cases from running 
+    - check for expected panic cases with `ShouldPanic`
+  - Test error cases 
+    - Check that function returns an error: `ShouldErr`
+    - Check that an error strings contains expected string: `ExpectedErr`
+    - Check that an error is of expected type: `ExpectedErr: ErrType(err)`
+  - Fail tests that take too long to complete
+    - `trial.New(fn,cases).Timeout(time.Second)`
+
+
 
 ## Getting Starting
 
