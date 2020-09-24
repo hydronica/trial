@@ -6,11 +6,8 @@ import (
 	"strings"
 
 	"github.com/google/go-cmp/cmp"
+	"github.com/google/go-cmp/cmp/cmpopts"
 )
-
-// ContainsFn has been renamed to Contains
-// Deprecated:
-func ContainsFn(x, y interface{}) (bool, string) { return Contains(x, y) }
 
 // Contains determines if y is a subset of x.
 // x is a string -> y is a string that is equal to or a subset of x (string.Contains)
@@ -133,30 +130,46 @@ func isInSlice(parent reflect.Value, child ...interface{}) differ {
 // Equal use the cmp.Diff method to check equality and display differences.
 // This method checks all unexpected values
 func Equal(actual, expected interface{}) (bool, string) {
-	/* var opts []cmp.Option
-	t := reflect.TypeOf(actual)
-	if t == nil {
-	} else if t.Kind() == reflect.Struct {
-		opts = append(opts, cmp.AllowUnexported(actual))
-	} else if t.Kind() == reflect.Ptr && t.Elem().Kind() == reflect.Struct {
-		opts = append(opts, cmp.AllowUnexported(reflect.ValueOf(actual).Elem().Interface()))
-	}
-	t = reflect.TypeOf(expected)
-	if t == nil {
-	} else if t.Kind() == reflect.Struct {
-		opts = append(opts, cmp.AllowUnexported(expected))
-	} else if t.Kind() == reflect.Ptr && t.Elem().Kind() == reflect.Struct {
-		opts = append(opts, cmp.AllowUnexported(reflect.ValueOf(expected).Elem().Interface()))
-	} */
-	opts := allowUnexported(actual)
+	opts := handleUnexported(actual, cmp.AllowUnexported)
 
 	r := cmp.Diff(actual, expected, opts...)
 	return r == "", r
 }
 
-// allowUnexported sets up i to be compared including unexported fields using cmp.Diff or cmp.Equal.
-// this function includes all unexported embedded structs or pointers to structs at all depths
-func allowUnexported(i interface{}) []cmp.Option {
+type ComparerOption struct {
+	IgnorePrivate bool // TODO: rename something shorter
+	IncludedVars  []string
+	ExcludedVars  []string
+}
+
+func (o ComparerOption) Equal(actual, expected interface{}) (bool, string) {
+	var opts cmp.Options
+	if o.IgnorePrivate {
+		opts = handleUnexported(actual, cmpopts.IgnoreUnexported)
+	} else {
+		opts = handleUnexported(actual, cmp.AllowUnexported)
+	}
+
+	r := cmp.Diff(actual, expected, opts...)
+	return r == "", r
+}
+
+// EqualWithOptions allow easy customization of the cmp.Equal method.
+// 1. Compare all private vars
+// 2. Ignore all private vars (todo)
+// 3. Only include specific vars (todo) (struct.varName)
+// 4. Exclude specific vars (todo) (struct.varName or `trial:"-"`)
+// 5. Support using an options for go-cmp library given the method func(i interface{}) cmp.Option
+func EqualWithOptions(opts ...interface{}) func(actual, expected interface{}) (bool, string) {
+	return Equal
+}
+
+// handleUnexported sets up the interface i to be compared using cmp.Diff or cmp.Equal.
+// optFn defines how unexported variables are to be handled, ignored or allowed
+// see cmp.AllowUnexported and cmpopts.IgnoreUnexported
+//
+// this function is recursive to support embedded structs or pointers to structs at all depths
+func handleUnexported(i interface{}, optFn func(i ...interface{}) cmp.Option) []cmp.Option {
 	opts := make([]cmp.Option, 0)
 	t := reflect.TypeOf(i)
 	// skip invalid types
@@ -175,7 +188,8 @@ func allowUnexported(i interface{}) []cmp.Option {
 		i = reflect.ValueOf(i).Elem().Interface()
 		fallthrough
 	case reflect.Struct:
-		opts = append(opts, cmp.AllowUnexported(i))
+		opts = append(opts, optFn(i))
+
 		rStruct := reflect.ValueOf(i)
 
 		// look through all fields of a struct for embedded structs
@@ -185,7 +199,7 @@ func allowUnexported(i interface{}) []cmp.Option {
 				// to support unexported (private) fields we need to create a copy
 				// of the field and then dereference the pointer to that struct
 				i = reflect.New(v.Elem().Type()).Elem().Interface()
-				opts = append(opts, allowUnexported(i)...)
+				opts = append(opts, handleUnexported(i, optFn)...)
 				continue
 			}
 			if !v.CanInterface() {
@@ -193,13 +207,13 @@ func allowUnexported(i interface{}) []cmp.Option {
 				// get the interface{} so instead create a copy of that field
 				v = reflect.New(v.Type()).Elem()
 			}
-			opts = append(opts, allowUnexported(v.Interface())...)
+			opts = append(opts, handleUnexported(v.Interface(), optFn)...)
 		}
 	case reflect.Map:
 		m := reflect.ValueOf(i)
 		for _, key := range m.MapKeys() {
 			v := m.MapIndex(key)
-			opts = append(opts, allowUnexported(v.Interface())...)
+			opts = append(opts, handleUnexported(v.Interface(), optFn)...)
 		}
 	case reflect.Array:
 		fallthrough
@@ -207,7 +221,7 @@ func allowUnexported(i interface{}) []cmp.Option {
 		s := reflect.ValueOf(i)
 		for i := 0; i < s.Len(); i++ {
 			v := s.Index(i)
-			opts = append(opts, allowUnexported(v.Interface())...)
+			opts = append(opts, handleUnexported(v.Interface(), optFn)...)
 		}
 	default:
 		return opts
