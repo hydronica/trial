@@ -111,7 +111,7 @@ func TestEqualFn(t *testing.T) {
 
 func TestContainsFn(t *testing.T) {
 	New(func(in Input) (interface{}, error) {
-		b, s := ContainsFn(in.Slice(0).Interface(), in.Slice(1).Interface())
+		b, s := Contains(in.Slice(0).Interface(), in.Slice(1).Interface())
 		var err error
 		if s != "" {
 			err = errors.New(s)
@@ -268,8 +268,8 @@ func TestCmpFuncs(t *testing.T) {
 			Expected: "",
 		},
 		"non-identical functions": {
-			Input:    Args(Equal, ContainsFn),
+			Input:    Args(Equal, Contains),
 			Expected: "funcs not equal",
 		},
-	}).EqualFn(ContainsFn).Test(t)
+	}).EqualFn(Contains).Test(t)
 }

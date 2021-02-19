@@ -6,7 +6,6 @@ import (
 	"strings"
 
 	"github.com/google/go-cmp/cmp"
-	"github.com/google/go-cmp/cmp/cmpopts"
 )
 
 // Contains determines if y is a subset of x.
@@ -130,12 +129,14 @@ func isInSlice(parent reflect.Value, child ...interface{}) differ {
 // Equal use the cmp.Diff method to check equality and display differences.
 // This method checks all unexpected values
 func Equal(actual, expected interface{}) (bool, string) {
-	opts := handleUnexported(actual, cmp.AllowUnexported)
+	i := findAllStructs(actual)
+	opts := cmp.AllowUnexported(i...)
 
-	r := cmp.Diff(actual, expected, opts...)
+	r := cmp.Diff(actual, expected, opts)
 	return r == "", r
 }
 
+/*
 type ComparerOption struct {
 	IgnorePrivate bool // TODO: rename something shorter
 	IncludedVars  []string
@@ -160,35 +161,35 @@ func (o ComparerOption) Equal(actual, expected interface{}) (bool, string) {
 // 3. Only include specific vars (todo) (struct.varName)
 // 4. Exclude specific vars (todo) (struct.varName or `trial:"-"`)
 // 5. Support using an options for go-cmp library given the method func(i interface{}) cmp.Option
-func EqualWithOptions(opts ...interface{}) func(actual, expected interface{}) (bool, string) {
-	return Equal
-}
+func EqualWithOptions(opts ...func(...interface{}) cmp.Option) func(actual, expected interface{}) (bool, string) {
+	return func(actual, expected interface{}) (bool, string) {
+		opts := handleUnexported(actual, cmp.AllowUnexported)
 
-// handleUnexported sets up the interface i to be compared using cmp.Diff or cmp.Equal.
-// optFn defines how unexported variables are to be handled, ignored or allowed
-// see cmp.AllowUnexported and cmpopts.IgnoreUnexported
-//
-// this function is recursive to support embedded structs or pointers to structs at all depths
-func handleUnexported(i interface{}, optFn func(i ...interface{}) cmp.Option) []cmp.Option {
-	opts := make([]cmp.Option, 0)
+		r := cmp.Diff(actual, expected, opts...)
+		return r == "", r
+	}
+} */
+
+func findAllStructs(i interface{}) []interface{} {
+	structs := make([]interface{}, 0)
 	t := reflect.TypeOf(i)
 	// skip invalid types
 	if t == nil {
-		return opts
+		return structs
 	}
 	// add struct and pointers to struct
 	switch t.Kind() {
 	case reflect.Ptr:
 		if t.Elem().Kind() != reflect.Struct {
-			return opts
+			return structs
 		}
 		if reflect.ValueOf(i).IsNil() {
-			return opts
+			return structs
 		}
 		i = reflect.ValueOf(i).Elem().Interface()
 		fallthrough
 	case reflect.Struct:
-		opts = append(opts, optFn(i))
+		structs = append(structs, i)
 
 		rStruct := reflect.ValueOf(i)
 
@@ -199,7 +200,7 @@ func handleUnexported(i interface{}, optFn func(i ...interface{}) cmp.Option) []
 				// to support unexported (private) fields we need to create a copy
 				// of the field and then dereference the pointer to that struct
 				i = reflect.New(v.Elem().Type()).Elem().Interface()
-				opts = append(opts, handleUnexported(i, optFn)...)
+				structs = append(structs, findAllStructs(i)...)
 				continue
 			}
 			if !v.CanInterface() {
@@ -207,13 +208,13 @@ func handleUnexported(i interface{}, optFn func(i ...interface{}) cmp.Option) []
 				// get the interface{} so instead create a copy of that field
 				v = reflect.New(v.Type()).Elem()
 			}
-			opts = append(opts, handleUnexported(v.Interface(), optFn)...)
+			structs = append(structs, findAllStructs(v.Interface())...)
 		}
 	case reflect.Map:
 		m := reflect.ValueOf(i)
 		for _, key := range m.MapKeys() {
 			v := m.MapIndex(key)
-			opts = append(opts, handleUnexported(v.Interface(), optFn)...)
+			structs = append(structs, findAllStructs(v.Interface())...)
 		}
 	case reflect.Array:
 		fallthrough
@@ -221,13 +222,13 @@ func handleUnexported(i interface{}, optFn func(i ...interface{}) cmp.Option) []
 		s := reflect.ValueOf(i)
 		for i := 0; i < s.Len(); i++ {
 			v := s.Index(i)
-			opts = append(opts, handleUnexported(v.Interface(), optFn)...)
+			structs = append(structs, findAllStructs(v.Interface())...)
 		}
 	default:
-		return opts
+		return structs
 	}
 
-	return opts
+	return structs
 }
 
 // CmpFuncs tries to determine if x is the same function as y.
