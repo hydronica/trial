@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"github.com/google/go-cmp/cmp"
+	"github.com/google/go-cmp/cmp/cmpopts"
 )
 
 // Contains determines if y is a subset of x.
@@ -136,39 +137,33 @@ func Equal(actual, expected interface{}) (bool, string) {
 	return r == "", r
 }
 
-/*
-type ComparerOption struct {
-	IgnorePrivate bool // TODO: rename something shorter
-	IncludedVars  []string
-	ExcludedVars  []string
-}
-
-func (o ComparerOption) Equal(actual, expected interface{}) (bool, string) {
-	var opts cmp.Options
-	if o.IgnorePrivate {
-		opts = handleUnexported(actual, cmpopts.IgnoreUnexported)
-	} else {
-		opts = handleUnexported(actual, cmp.AllowUnexported)
-	}
-
-	r := cmp.Diff(actual, expected, opts...)
-	return r == "", r
-}
-
-// EqualWithOptions allow easy customization of the cmp.Equal method.
+// EqualOpt allow easy customization of the cmp.Equal method.
 // 1. Compare all private vars
-// 2. Ignore all private vars (todo)
+// 2. Ignore all private vars
 // 3. Only include specific vars (todo) (struct.varName)
 // 4. Exclude specific vars (todo) (struct.varName or `trial:"-"`)
 // 5. Support using an options for go-cmp library given the method func(i interface{}) cmp.Option
-func EqualWithOptions(opts ...func(...interface{}) cmp.Option) func(actual, expected interface{}) (bool, string) {
+func EqualOpt(optFns ...func(i interface{}) cmp.Option) func(actual, expected interface{}) (bool, string) {
 	return func(actual, expected interface{}) (bool, string) {
-		opts := handleUnexported(actual, cmp.AllowUnexported)
+		opts := make([]cmp.Option, 0)
+		for _, fn := range optFns {
+			opts = append(opts, fn(actual))
+		}
 
 		r := cmp.Diff(actual, expected, opts...)
 		return r == "", r
 	}
-} */
+}
+
+// AllowAllUnexported sets cmp.Diff to allow all unexported (private) variables
+func AllowAllUnexported(i interface{}) cmp.Option {
+	return cmp.AllowUnexported(findAllStructs(i)...)
+}
+
+// IgnoreAllUnexported sets cmp.Diff to ignore all unexported (private) variables
+func IgnoreAllUnexported(i interface{}) cmp.Option {
+	return cmpopts.IgnoreUnexported(findAllStructs(i)...)
+}
 
 func findAllStructs(i interface{}) []interface{} {
 	structs := make([]interface{}, 0)
