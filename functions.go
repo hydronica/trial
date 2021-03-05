@@ -25,6 +25,23 @@ func Contains(x, y interface{}) (bool, string) {
 	return false, r.String()
 }
 
+const (
+	SubStrings = iota
+	SubSlices
+	SubMaps
+)
+
+// ContainsOpt allow configurable options to the contains method
+// 1. Check for sub-strings ("abc" -> "abcdefg")
+// 2. Check for sub-slices (["a"] -> ["a","b","c"])
+// 3. Check for sub-maps
+// 4. use regex match as a sub-string check
+/*
+func ContainsOpt(o interface{}) CompareFunc {
+	return Contains
+}
+*/
+
 func contains(x, y interface{}) differ {
 	valX := reflect.ValueOf(x)
 	valY := reflect.ValueOf(y)
@@ -163,6 +180,13 @@ func AllowAllUnexported(i interface{}) cmp.Option {
 // IgnoreAllUnexported sets cmp.Diff to ignore all unexported (private) variables
 func IgnoreAllUnexported(i interface{}) cmp.Option {
 	return cmpopts.IgnoreUnexported(findAllStructs(i)...)
+}
+
+// IgnoreFields is a wrapper around the cmpopts.IgnoreFields
+func IgnoreFields(f ...string) func(interface{}) cmp.Option {
+	return func(i interface{}) cmp.Option {
+		return cmpopts.IgnoreFields(i, f...)
+	}
 }
 
 func findAllStructs(i interface{}) []interface{} {

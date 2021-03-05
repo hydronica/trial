@@ -26,7 +26,7 @@ Framework to make tests easier to create, maintain and debug.
     - each test is self isolated so a panic won't stop other cases from running 
     - check for expected panic cases with `ShouldPanic`
   - Test error cases 
-    - Check that function returns an error: `ShouldErr`
+    - Check that a function returns an error: `ShouldErr`
     - Check that an error strings contains expected string: `ExpectedErr`
     - Check that an error is of expected type: `ExpectedErr: ErrType(err)`
   - Fail tests that take too long to complete
@@ -150,7 +150,7 @@ func TestDivide(t *testing.T) {
 // PASS: "divide by zero"
 ```
 
-## Compare Functions
+# Compare Functions
 used to compare two values to determine equality and displayed a detailed string describing any differences.
 
 ``` go
@@ -163,10 +163,18 @@ override the default
 trial.New(fn, cases).Comparer(myComparer).Test(t)
 ```
 
-### Equal
-This is the default comparer used, it is a wrapping for cmp.Equal with the AllowUnexported option set for all structs. This causes all fields (public and private) in a struct to be compared. (see https://github.com/google/go-cmp)
+## Equal
+The default comparer used, it is a wrapping for cmp.Equal with the AllowUnexported option set for all structs. This causes all fields (public and private) in a struct to be compared. (see https://github.com/google/go-cmp)
 
-### Contains ⊇
+### EqualOpt
+
+Customize the use of cmp.Equal with the following supported options: 
+  - `AllowAllUnexported` - compare all unexported (private) variables within a struct. This is useful when testing a struct inside its own package. This is the default behavior of **Equal**
+  - `IgnoreAllUnexported` - ignore all unexported (private) variables within a struct. This is useful when dealing with a struct outside the project. 
+  - `IgnoreFields(fields ...string)` - define a list of variables to exclude for the comparer, the field name are case sensitize and can be dot-delimited ("Field", "Parent.child")
+
+  
+## Contains ⊇
 
 Checks if the expected value is *contained* in the actual value. The symbol ⊇ is used to donate a subset. ∈ is used to show that a value exists in a slice. Contains checks the following relationships
 
@@ -182,7 +190,7 @@ Checks if the expected value is *contained* in the actual value. The symbol ⊇ 
   - is the expected map a subset of the actual map. all keys in expected are in actual and all values under that key are contained in actual
 
 ## Helper Functions
-The helper functions are convince methods for either ignoring errors on test setup or for capturing output for testing.
+The helper functions are convenience methods for either ignoring errors on test setup or for capturing output for testing.
 
 ### Output Capturing
   Capture output written to log, stdout or stderr.

@@ -109,6 +109,93 @@ func TestEqualFn(t *testing.T) {
 	New(fn, cases).Test(t)
 }
 
+func TestComparerOptions(t *testing.T) {
+	type child struct {
+		Float  float32
+		pFloat float64
+	}
+	type tStruct struct {
+		Int    int
+		String string
+
+		pInt    int
+		pString string
+		Child   child
+		kid     child
+	}
+
+	type input struct {
+		fn CompareFunc
+		v1 interface{}
+		v2 interface{}
+	}
+	fn := func(in Input) (interface{}, error) {
+		i := in.Interface().(input)
+		eq, diff := i.fn(i.v1, i.v2)
+		if !eq {
+			return nil, errors.New(diff)
+		}
+		return eq, nil
+	}
+	cases := Cases{
+		"compare unexported": {
+			Input: input{
+				fn: EqualOpt(AllowAllUnexported),
+				v1: tStruct{Int: 1, String: "ello", pInt: 3, pString: "apple"},
+				v2: tStruct{Int: 1, String: "ello", pInt: 3, pString: "apple"},
+			},
+			Expected: true,
+		},
+		"ignore unexported": {
+			Input: input{
+				fn: EqualOpt(IgnoreAllUnexported),
+				v1: tStruct{Int: 1, String: "ello", pInt: 3, pString: "apple"},
+				v2: tStruct{Int: 1, String: "ello"},
+			},
+			Expected: true,
+		},
+		"ignore fields": {
+			Input: input{
+				fn: EqualOpt(IgnoreAllUnexported, IgnoreFields("Int", "Child.Float")),
+				v1: tStruct{Int: 1, String: "ello", Child: child{Float: 12.34}},
+				v2: tStruct{String: "ello"},
+			},
+			Expected: true,
+		},
+		"ignore private fields": {
+			Input: input{
+				fn: EqualOpt(AllowAllUnexported, IgnoreFields("pString", "kid.pFloat")),
+				v1: tStruct{
+					Int:     1,
+					String:  "ello",
+					pInt:    3,
+					pString: "apple",
+					Child:   child{Float: 12.2, pFloat: 11.7},
+					kid:     child{Float: 88.1, pFloat: 2.7},
+				},
+				v2: tStruct{
+					Int:    1,
+					String: "ello",
+					pInt:   3,
+					Child:  child{Float: 12.2, pFloat: 11.7},
+					kid:    child{Float: 88.1},
+				},
+			},
+			Expected: true,
+		},
+		"ignore struct": {
+			Input: input{
+				fn: EqualOpt(IgnoreAllUnexported, IgnoreFields("Child")),
+				v1: tStruct{Int: 1, String: "ello", Child: child{Float: 12.34}},
+				v2: tStruct{Int: 1, String: "ello"},
+			},
+			Expected: true,
+		},
+	}
+	New(fn, cases).SubTest(t)
+
+}
+
 func TestContainsFn(t *testing.T) {
 	New(func(in Input) (interface{}, error) {
 		b, s := Contains(in.Slice(0).Interface(), in.Slice(1).Interface())
