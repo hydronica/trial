@@ -7,6 +7,8 @@
 
 Framework to make tests easier to create, maintain and debug.
 
+
+See [wiki](https://github.com/hydronica/trial/wiki) for tips and guides
 ## Philosophy
 
 - Tests should be written as [Table Driven Tests](https://github.com/golang/go/wiki/TableDrivenTests) with defined inputs and outputs
@@ -73,83 +75,6 @@ Alternatively to run as each case as a subtest
 
 ### Examples
 
-#### Test a simple add method
-
-``` go
-func Add(i1, i2 int) int {
-  return i1 + i2
-}
-
-func TestAdd(t *testing.T) {
-  testFn := func(in Input) (interface{}, error) {
-    return Add(in.Slice(0).Int(), in.Slice(1).Int()), nil
-  }
-  cases := trial.Cases{
-    "Add two numbers":{
-      Input: trial.Args(1,2),
-      Expected: 3,
-  }
-  trial.New(fn, cases).Test(t)
-  }
-
-  // Output: PASS: "Add two numbers"
-```
-
-#### Test string to int conversion
-
-``` go
-func TestStrconv_Itoa(t *testing.T)
-testFn := func(in Input) (interface{}, error) {
-    return strconv.Itoa(in.Int())
-}
-cases :=trial.Cases{
-  "valid int":{
-    Input: "12",
-    Expected: 12,
-  },
-  "invalid int": {
-    Input: "1abe",
-    ShouldErr: true,
-  },
-}
-trial.New(fn, cases).Test(t)
-}
-
-// Output: PASS: "valid int"
-// PASS: "invalid int"
-```
-
-#### Test divide method
-
-``` go
-func Divide(i1, i2 int) int {
-  return i1/i2
-}
-func TestDivide(t *testing.T) {
-  fn := func(in Input) (interface{}, error) {
-    return Divide(in.Slice(0).Int(), in.Slice(1).Int()), nil
-  }
-  cases := trial.Cases{
-    "1/1":{
-      Input: trial.Args(1,1),
-      Expected: 1,
-    },
-    "6/2": {
-      Input: trial.Args(6,2),
-      Expected: 1,
-    },
-    "divide by zero": {
-      Input: trial.Args(1,0),
-      ShouldPanic: true,
-    }
-  }
-  trial.New(fn, cases).Test(t)
-}
-// Output: PASS: "1/1"
-// FAIL: "6/2"
-// PASS: "divide by zero"
-```
-
 # Compare Functions
 used to compare two values to determine equality and displayed a detailed string describing any differences.
 
@@ -169,9 +94,12 @@ The default comparer used, it is a wrapping for cmp.Equal with the AllowUnexport
 ### EqualOpt
 
 Customize the use of cmp.Equal with the following supported options: 
-  - `AllowAllUnexported` - compare all unexported (private) variables within a struct. This is useful when testing a struct inside its own package. This is the default behavior of **Equal**
+  - `AllowAllUnexported` - **[default: Equal]** compare all unexported (private) variables within a struct. This is useful when testing a struct inside its own package. 
   - `IgnoreAllUnexported` - ignore all unexported (private) variables within a struct. This is useful when dealing with a struct outside the project. 
   - `IgnoreFields(fields ...string)` - define a list of variables to exclude for the comparer, the field name are case sensitize and can be dot-delimited ("Field", "Parent.child")
+  - `EquateEmpty`- **[default: Equal]** a nil map or slice is equal to an empty one (len is zero)
+  - `IgnoreTypes(values ...interface{})` - ignore all types of the values passed in. Ex: IgnoreTypes(int64(0), float32(0.0)) ignore int64 and float32
+  - `ApproxTime(d time.Duration)` - approximates time values to to the nearest duration. 
 
   
 ## Contains ⊇
@@ -188,64 +116,3 @@ Checks if the expected value is *contained* in the actual value. The symbol ⊇ 
   - is the expected slice a subset of the actual slice. all values in expected exist and are contained in actual.
 - **map[key]interface{} ⊇ map[key]interface{}**
   - is the expected map a subset of the actual map. all keys in expected are in actual and all values under that key are contained in actual
-
-## Helper Functions
-The helper functions are convenience methods for either ignoring errors on test setup or for capturing output for testing.
-
-### Output Capturing
-  Capture output written to log, stdout or stderr.
-  Call *ReadAll* to get captured data as a single string.
-  Call *ReadLines* to get captured data as a []string split by newline. Calling either method closes and reset the output redirection.
-
-#### CaptureLog
-
-``` go
-  c := CaptureLog()
-  // logic that writes to logs
-  log.Print("hello")
-  c.ReadAll() // -> returns hello
-```
-
-Note: log is reset to write to stderr
-
-#### CaptureStdErr
-
-``` go
-  c := CaptureStdErr()
-  // write to stderr
-  fmt.Fprint(os.stderr, "hello\n")
-  fmt.Fprint(os.stderr, "world")
-  c.ReadLines() // []string{"hello","world"}
-```
-
-#### CaptureStdOut
-
-``` go
-  c := CaptureStdOut()
-  // write to stdout
-  fmt.Println("hello")
-  fmt.Print("world")
-  c.ReadLines() // []string{"hello","world"}
-```
-
-### Time Parsing
-
-convenience functions for getting a time value to test, methods panic instead of error
-
-- **TimeHour(s string)** - uses format "2006-01-02T15"
-- **TimeDay(s string)** - uses format "2006-01-02"
-- **Times(layout string, values ...string)**
-- **TimeP(layout string, s string)** returns a *time.Time
-
-### Pointer init
-
-convenience functions for initializing a pointer to a basic type
-
-- int pointer
-  - IntP, Int8P, Int16P, Int32P, Int64P
-- uint pointer
-  - UintP, Uint8P, Uint16P, Uint32P, Uint64P
-- bool pointer - BoolP
-- float pointer
-  - Float32P, Float64P
-- string pointer - StringP

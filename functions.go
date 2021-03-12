@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"reflect"
 	"strings"
+	"time"
 
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
@@ -147,19 +148,12 @@ func isInSlice(parent reflect.Value, child ...interface{}) differ {
 // Equal use the cmp.Diff method to check equality and display differences.
 // This method checks all unexpected values
 func Equal(actual, expected interface{}) (bool, string) {
-	i := findAllStructs(actual)
-	opts := cmp.AllowUnexported(i...)
-
-	r := cmp.Diff(actual, expected, opts)
-	return r == "", r
+	fn := EqualOpt(AllowAllUnexported, EquateEmpty)
+	return fn(actual, expected)
 }
 
 // EqualOpt allow easy customization of the cmp.Equal method.
-// 1. Compare all private vars
-// 2. Ignore all private vars
-// 3. Only include specific vars (todo) (struct.varName)
-// 4. Exclude specific vars (todo) (struct.varName or `trial:"-"`)
-// 5. Support using an options for go-cmp library given the method func(i interface{}) cmp.Option
+// see below for a list of supported options
 func EqualOpt(optFns ...func(i interface{}) cmp.Option) func(actual, expected interface{}) (bool, string) {
 	return func(actual, expected interface{}) (bool, string) {
 		opts := make([]cmp.Option, 0)
@@ -187,6 +181,39 @@ func IgnoreFields(f ...string) func(interface{}) cmp.Option {
 	return func(i interface{}) cmp.Option {
 		return cmpopts.IgnoreFields(i, f...)
 	}
+}
+
+// IgnoreTypes is a wrapper around the cmpopts.IgnoreTypes
+// it allows ignore the type of the values passed in
+// int32(0), int(0), string(0), time.Duration(0), etc
+func IgnoreTypes(types ...interface{}) func(interface{}) cmp.Option {
+	return func(_ interface{}) cmp.Option {
+		return cmpopts.IgnoreTypes(types...)
+	}
+}
+
+// ApproxTime is a wrapper around the cmpopts.EquateApproxTime
+// it will consider time.Time values equal if there difference is
+// less than the defined duration
+func ApproxTime(d time.Duration) func(interface{}) cmp.Option {
+	return func(_ interface{}) cmp.Option {
+		return cmpopts.EquateApproxTime(d)
+	}
+}
+
+/*
+func IgnoreInterfaces(i ...interface{}) func(interface{}) cmp.Option {
+	return func(i interface{}) cmp.Option {
+		return cmpopts.IgnoreInterfaces(i)
+	}
+}
+*/
+
+// EquateEmpty is a wrapper around cmpopts.EquateEmpty
+// it determines all maps and slices with a length of zero to be equal,
+// regardless of whether they are nil
+func EquateEmpty(i interface{}) cmp.Option {
+	return cmpopts.EquateEmpty()
 }
 
 func findAllStructs(i interface{}) []interface{} {

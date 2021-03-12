@@ -122,7 +122,11 @@ func TestComparerOptions(t *testing.T) {
 		pString string
 		Child   child
 		kid     child
+
+		Map   map[string]interface{}
+		Slice []string
 	}
+	type Alias int
 
 	type input struct {
 		fn CompareFunc
@@ -188,6 +192,58 @@ func TestComparerOptions(t *testing.T) {
 				fn: EqualOpt(IgnoreAllUnexported, IgnoreFields("Child")),
 				v1: tStruct{Int: 1, String: "ello", Child: child{Float: 12.34}},
 				v2: tStruct{Int: 1, String: "ello"},
+			},
+			Expected: true,
+		},
+		"Equate Empty": {
+			Input: input{
+				fn: EqualOpt(IgnoreAllUnexported, EquateEmpty),
+				v1: tStruct{Map: map[string]interface{}{}, Slice: []string{}},
+				v2: tStruct{Map: nil, Slice: nil},
+			},
+			Expected: true,
+		},
+		"IgnoreType": {
+			Input: input{
+				fn: EqualOpt(IgnoreAllUnexported, IgnoreTypes(int(10))),
+				v1: tStruct{Int: 10, String: "ello"},
+				v2: tStruct{String: "ello"},
+			},
+			Expected: true,
+		},
+		"IgnoreAlias": {
+			Input: input{
+				fn: EqualOpt(IgnoreAllUnexported, IgnoreTypes(Alias(0))),
+				v1: struct {
+					A   Alias
+					Int int
+				}{A: 10, Int: 7},
+				v2: struct {
+					A   Alias
+					Int int
+				}{Int: 7},
+			},
+			Expected: true,
+		},
+		"IgnoreKeepAlias": {
+			Input: input{
+				fn: EqualOpt(IgnoreAllUnexported, IgnoreTypes(int(0))),
+				v1: struct {
+					A   Alias
+					Int int
+				}{A: 10, Int: 7},
+				v2: struct {
+					A   Alias
+					Int int
+				}{A: 10},
+			},
+			Expected: true,
+		},
+		"ApproxTime": {
+			Input: input{
+				fn: EqualOpt(ApproxTime(time.Minute)),
+				v1: struct{ T time.Time }{T: Time(time.RFC3339, "2020-10-05T12:14:17Z")},
+				v2: struct{ T time.Time }{T: Time(time.RFC3339, "2020-10-05T12:14:18Z")},
 			},
 			Expected: true,
 		},
