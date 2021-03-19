@@ -4,13 +4,11 @@ import (
 	"fmt"
 	"reflect"
 	"strings"
+	"time"
 
 	"github.com/google/go-cmp/cmp"
+	"github.com/google/go-cmp/cmp/cmpopts"
 )
-
-// ContainsFn has been renamed to Contains
-// Deprecated:
-func ContainsFn(x, y interface{}) (bool, string) { return Contains(x, y) }
 
 // Contains determines if y is a subset of x.
 // x is a string -> y is a string that is equal to or a subset of x (string.Contains)
@@ -27,6 +25,23 @@ func Contains(x, y interface{}) (bool, string) {
 	}
 	return false, r.String()
 }
+
+const (
+	SubStrings = iota
+	SubSlices
+	SubMaps
+)
+
+// ContainsOpt allow configurable options to the contains method
+// 1. Check for sub-strings ("abc" -> "abcdefg")
+// 2. Check for sub-slices (["a"] -> ["a","b","c"])
+// 3. Check for sub-maps
+// 4. use regex match as a sub-string check
+/*
+func ContainsOpt(o interface{}) CompareFunc {
+	return Contains
+}
+*/
 
 func contains(x, y interface{}) differ {
 	valX := reflect.ValueOf(x)
@@ -133,49 +148,95 @@ func isInSlice(parent reflect.Value, child ...interface{}) differ {
 // Equal use the cmp.Diff method to check equality and display differences.
 // This method checks all unexpected values
 func Equal(actual, expected interface{}) (bool, string) {
-	/* var opts []cmp.Option
-	t := reflect.TypeOf(actual)
-	if t == nil {
-	} else if t.Kind() == reflect.Struct {
-		opts = append(opts, cmp.AllowUnexported(actual))
-	} else if t.Kind() == reflect.Ptr && t.Elem().Kind() == reflect.Struct {
-		opts = append(opts, cmp.AllowUnexported(reflect.ValueOf(actual).Elem().Interface()))
-	}
-	t = reflect.TypeOf(expected)
-	if t == nil {
-	} else if t.Kind() == reflect.Struct {
-		opts = append(opts, cmp.AllowUnexported(expected))
-	} else if t.Kind() == reflect.Ptr && t.Elem().Kind() == reflect.Struct {
-		opts = append(opts, cmp.AllowUnexported(reflect.ValueOf(expected).Elem().Interface()))
-	} */
-	opts := allowUnexported(actual)
-
-	r := cmp.Diff(actual, expected, opts...)
-	return r == "", r
+	fn := EqualOpt(AllowAllUnexported, EquateEmpty)
+	return fn(actual, expected)
 }
 
-// allowUnexported sets up i to be compared including unexported fields using cmp.Diff or cmp.Equal.
-// this function includes all unexported embedded structs or pointers to structs at all depths
-func allowUnexported(i interface{}) []cmp.Option {
-	opts := make([]cmp.Option, 0)
+// EqualOpt allow easy customization of the cmp.Equal method.
+// see below for a list of supported options
+func EqualOpt(optFns ...func(i interface{}) cmp.Option) func(actual, expected interface{}) (bool, string) {
+	return func(actual, expected interface{}) (bool, string) {
+		opts := make([]cmp.Option, 0)
+		for _, fn := range optFns {
+			opts = append(opts, fn(actual))
+		}
+
+		r := cmp.Diff(actual, expected, opts...)
+		return r == "", r
+	}
+}
+
+// AllowAllUnexported sets cmp.Diff to allow all unexported (private) variables
+func AllowAllUnexported(i interface{}) cmp.Option {
+	return cmp.AllowUnexported(findAllStructs(i)...)
+}
+
+// IgnoreAllUnexported sets cmp.Diff to ignore all unexported (private) variables
+func IgnoreAllUnexported(i interface{}) cmp.Option {
+	return cmpopts.IgnoreUnexported(findAllStructs(i)...)
+}
+
+// IgnoreFields is a wrapper around the cmpopts.IgnoreFields
+func IgnoreFields(f ...string) func(interface{}) cmp.Option {
+	return func(i interface{}) cmp.Option {
+		return cmpopts.IgnoreFields(i, f...)
+	}
+}
+
+// IgnoreTypes is a wrapper around the cmpopts.IgnoreTypes
+// it allows ignore the type of the values passed in
+// int32(0), int(0), string(0), time.Duration(0), etc
+func IgnoreTypes(types ...interface{}) func(interface{}) cmp.Option {
+	return func(_ interface{}) cmp.Option {
+		return cmpopts.IgnoreTypes(types...)
+	}
+}
+
+// ApproxTime is a wrapper around the cmpopts.EquateApproxTime
+// it will consider time.Time values equal if there difference is
+// less than the defined duration
+func ApproxTime(d time.Duration) func(interface{}) cmp.Option {
+	return func(_ interface{}) cmp.Option {
+		return cmpopts.EquateApproxTime(d)
+	}
+}
+
+/*
+func IgnoreInterfaces(i ...interface{}) func(interface{}) cmp.Option {
+	return func(i interface{}) cmp.Option {
+		return cmpopts.IgnoreInterfaces(i)
+	}
+}
+*/
+
+// EquateEmpty is a wrapper around cmpopts.EquateEmpty
+// it determines all maps and slices with a length of zero to be equal,
+// regardless of whether they are nil
+func EquateEmpty(i interface{}) cmp.Option {
+	return cmpopts.EquateEmpty()
+}
+
+func findAllStructs(i interface{}) []interface{} {
+	structs := make([]interface{}, 0)
 	t := reflect.TypeOf(i)
 	// skip invalid types
 	if t == nil {
-		return opts
+		return structs
 	}
 	// add struct and pointers to struct
 	switch t.Kind() {
 	case reflect.Ptr:
 		if t.Elem().Kind() != reflect.Struct {
-			return opts
+			return structs
 		}
 		if reflect.ValueOf(i).IsNil() {
-			return opts
+			return structs
 		}
 		i = reflect.ValueOf(i).Elem().Interface()
 		fallthrough
 	case reflect.Struct:
-		opts = append(opts, cmp.AllowUnexported(i))
+		structs = append(structs, i)
+
 		rStruct := reflect.ValueOf(i)
 
 		// look through all fields of a struct for embedded structs
@@ -185,7 +246,7 @@ func allowUnexported(i interface{}) []cmp.Option {
 				// to support unexported (private) fields we need to create a copy
 				// of the field and then dereference the pointer to that struct
 				i = reflect.New(v.Elem().Type()).Elem().Interface()
-				opts = append(opts, allowUnexported(i)...)
+				structs = append(structs, findAllStructs(i)...)
 				continue
 			}
 			if !v.CanInterface() {
@@ -193,13 +254,13 @@ func allowUnexported(i interface{}) []cmp.Option {
 				// get the interface{} so instead create a copy of that field
 				v = reflect.New(v.Type()).Elem()
 			}
-			opts = append(opts, allowUnexported(v.Interface())...)
+			structs = append(structs, findAllStructs(v.Interface())...)
 		}
 	case reflect.Map:
 		m := reflect.ValueOf(i)
 		for _, key := range m.MapKeys() {
 			v := m.MapIndex(key)
-			opts = append(opts, allowUnexported(v.Interface())...)
+			structs = append(structs, findAllStructs(v.Interface())...)
 		}
 	case reflect.Array:
 		fallthrough
@@ -207,13 +268,13 @@ func allowUnexported(i interface{}) []cmp.Option {
 		s := reflect.ValueOf(i)
 		for i := 0; i < s.Len(); i++ {
 			v := s.Index(i)
-			opts = append(opts, allowUnexported(v.Interface())...)
+			structs = append(structs, findAllStructs(v.Interface())...)
 		}
 	default:
-		return opts
+		return structs
 	}
 
-	return opts
+	return structs
 }
 
 // CmpFuncs tries to determine if x is the same function as y.

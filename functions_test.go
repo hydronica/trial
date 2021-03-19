@@ -109,9 +109,152 @@ func TestEqualFn(t *testing.T) {
 	New(fn, cases).Test(t)
 }
 
+func TestComparerOptions(t *testing.T) {
+	type child struct {
+		Float  float32
+		pFloat float64
+	}
+	type tStruct struct {
+		Int    int
+		String string
+
+		pInt    int
+		pString string
+		Child   child
+		kid     child
+
+		Map   map[string]interface{}
+		Slice []string
+	}
+	type Alias int
+
+	type input struct {
+		fn CompareFunc
+		v1 interface{}
+		v2 interface{}
+	}
+	fn := func(in Input) (interface{}, error) {
+		i := in.Interface().(input)
+		eq, diff := i.fn(i.v1, i.v2)
+		if !eq {
+			return nil, errors.New(diff)
+		}
+		return eq, nil
+	}
+	cases := Cases{
+		"compare unexported": {
+			Input: input{
+				fn: EqualOpt(AllowAllUnexported),
+				v1: tStruct{Int: 1, String: "ello", pInt: 3, pString: "apple"},
+				v2: tStruct{Int: 1, String: "ello", pInt: 3, pString: "apple"},
+			},
+			Expected: true,
+		},
+		"ignore unexported": {
+			Input: input{
+				fn: EqualOpt(IgnoreAllUnexported),
+				v1: tStruct{Int: 1, String: "ello", pInt: 3, pString: "apple"},
+				v2: tStruct{Int: 1, String: "ello"},
+			},
+			Expected: true,
+		},
+		"ignore fields": {
+			Input: input{
+				fn: EqualOpt(IgnoreAllUnexported, IgnoreFields("Int", "Child.Float")),
+				v1: tStruct{Int: 1, String: "ello", Child: child{Float: 12.34}},
+				v2: tStruct{String: "ello"},
+			},
+			Expected: true,
+		},
+		"ignore private fields": {
+			Input: input{
+				fn: EqualOpt(AllowAllUnexported, IgnoreFields("pString", "kid.pFloat")),
+				v1: tStruct{
+					Int:     1,
+					String:  "ello",
+					pInt:    3,
+					pString: "apple",
+					Child:   child{Float: 12.2, pFloat: 11.7},
+					kid:     child{Float: 88.1, pFloat: 2.7},
+				},
+				v2: tStruct{
+					Int:    1,
+					String: "ello",
+					pInt:   3,
+					Child:  child{Float: 12.2, pFloat: 11.7},
+					kid:    child{Float: 88.1},
+				},
+			},
+			Expected: true,
+		},
+		"ignore struct": {
+			Input: input{
+				fn: EqualOpt(IgnoreAllUnexported, IgnoreFields("Child")),
+				v1: tStruct{Int: 1, String: "ello", Child: child{Float: 12.34}},
+				v2: tStruct{Int: 1, String: "ello"},
+			},
+			Expected: true,
+		},
+		"Equate Empty": {
+			Input: input{
+				fn: EqualOpt(IgnoreAllUnexported, EquateEmpty),
+				v1: tStruct{Map: map[string]interface{}{}, Slice: []string{}},
+				v2: tStruct{Map: nil, Slice: nil},
+			},
+			Expected: true,
+		},
+		"IgnoreType": {
+			Input: input{
+				fn: EqualOpt(IgnoreAllUnexported, IgnoreTypes(int(10))),
+				v1: tStruct{Int: 10, String: "ello"},
+				v2: tStruct{String: "ello"},
+			},
+			Expected: true,
+		},
+		"IgnoreAlias": {
+			Input: input{
+				fn: EqualOpt(IgnoreAllUnexported, IgnoreTypes(Alias(0))),
+				v1: struct {
+					A   Alias
+					Int int
+				}{A: 10, Int: 7},
+				v2: struct {
+					A   Alias
+					Int int
+				}{Int: 7},
+			},
+			Expected: true,
+		},
+		"IgnoreKeepAlias": {
+			Input: input{
+				fn: EqualOpt(IgnoreAllUnexported, IgnoreTypes(int(0))),
+				v1: struct {
+					A   Alias
+					Int int
+				}{A: 10, Int: 7},
+				v2: struct {
+					A   Alias
+					Int int
+				}{A: 10},
+			},
+			Expected: true,
+		},
+		"ApproxTime": {
+			Input: input{
+				fn: EqualOpt(ApproxTime(time.Minute)),
+				v1: struct{ T time.Time }{T: Time(time.RFC3339, "2020-10-05T12:14:17Z")},
+				v2: struct{ T time.Time }{T: Time(time.RFC3339, "2020-10-05T12:14:18Z")},
+			},
+			Expected: true,
+		},
+	}
+	New(fn, cases).SubTest(t)
+
+}
+
 func TestContainsFn(t *testing.T) {
 	New(func(in Input) (interface{}, error) {
-		b, s := ContainsFn(in.Slice(0).Interface(), in.Slice(1).Interface())
+		b, s := Contains(in.Slice(0).Interface(), in.Slice(1).Interface())
 		var err error
 		if s != "" {
 			err = errors.New(s)
@@ -268,8 +411,8 @@ func TestCmpFuncs(t *testing.T) {
 			Expected: "",
 		},
 		"non-identical functions": {
-			Input:    Args(Equal, ContainsFn),
+			Input:    Args(Equal, Contains),
 			Expected: "funcs not equal",
 		},
-	}).EqualFn(ContainsFn).Test(t)
+	}).EqualFn(Contains).Test(t)
 }
