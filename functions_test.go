@@ -253,6 +253,11 @@ func TestComparerOptions(t *testing.T) {
 }
 
 func TestContainsFn(t *testing.T) {
+	type tStruct struct {
+		Name  string
+		Value int
+	}
+
 	New(func(in Input) (interface{}, error) {
 		b, s := Contains(in.Slice(0).Interface(), in.Slice(1).Interface())
 		var err error
@@ -385,7 +390,16 @@ func TestContainsFn(t *testing.T) {
 			Input:     Args(map[string]string{}, map[string]string{"test": "a"}),
 			ShouldErr: true,
 		},
+		"map empty int is subset": {
+			Input:    Args(map[int]int{1: 1, 2: 2, 3: 3}, map[int]int{}),
+			Expected: true,
+		},
+		"map struct empty is subset": {
+			Input:    Args(map[int]tStruct{1: {"a", 1}, 2: {"b", 2}, 3: {"c", 3}}, map[int]tStruct{}),
+			Expected: true,
+		},
 	}).SubTest(t)
+
 }
 
 func TestCmpFuncs(t *testing.T) {
