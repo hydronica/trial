@@ -1,7 +1,7 @@
 # Trial - Prove the Innocents of your code
 
 [![GoDoc](http://img.shields.io/badge/go-documentation-blue.svg?style=flat-square)](https://godoc.org/github.com/hydronica/trial)
-[![Build Status](https://travis-ci.com/jbsmith7741/trial.svg?branch=master)](https://travis-ci.com/hydronica/trial)
+![Build Status](https://github.com/hydronica/trial/actions/workflows/test.yml/badge.svg)
 [![Go Report Card](https://goreportcard.com/badge/github.com/jbsmith7741/trial)](https://goreportcard.com/report/github.com/hydronica/trial)
 [![codecov](https://codecov.io/gh/jbsmith7741/trial/branch/master/graph/badge.svg)](https://codecov.io/gh/hydronica/trial)
 
