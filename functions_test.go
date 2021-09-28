@@ -2,6 +2,7 @@ package trial
 
 import (
 	"errors"
+	"reflect"
 	"testing"
 	"time"
 )
@@ -17,6 +18,9 @@ func TestEqualFn(t *testing.T) {
 	type grandparent struct {
 		parent *parent
 		t      time.Time
+	}
+	type maper struct {
+		myMap map[string]test
 	}
 	fn := func(in Input) (interface{}, error) {
 		r, _ := Equal(in.Slice(0).Interface(), in.Slice(1).Interface())
@@ -83,6 +87,13 @@ func TestEqualFn(t *testing.T) {
 			Input: Args(
 				map[string]grandparent{"a": {t: TimeHour("2018-01-01T00")}},
 				map[string]grandparent{"a": {t: TimeHour("2018-01-01T00")}},
+			),
+			Expected: true,
+		},
+		"embeded map": {
+			Input: Args(
+				&maper{myMap: map[string]test{"a": {private: "pritate", Public: 10}}},
+				&maper{myMap: map[string]test{"a": {private: "pritate", Public: 10}}},
 			),
 			Expected: true,
 		},
@@ -429,4 +440,37 @@ func TestCmpFuncs(t *testing.T) {
 			Expected: "funcs not equal",
 		},
 	}).EqualFn(Contains).Test(t)
+}
+
+func TestFindAllStructs(t *testing.T) {
+	type tStruct struct {
+		Apple int
+	}
+	type mapper struct {
+		m map[string]tStruct
+	}
+	fn := func(in Input) (interface{}, error) {
+		result := make([]string, 0)
+		for _, v := range findAllStructs(in.Interface()) {
+			s := reflect.TypeOf(v).Name()
+			result = append(result, s)
+		}
+
+		return result, nil
+	}
+	cases := Cases{
+		"struct": {
+			Input:    tStruct{},
+			Expected: []string{"tStruct"},
+		},
+		"mapper": {
+			Input:    mapper{m: map[string]tStruct{"ab": {}}},
+			Expected: []string{"mapper", "tStruct"},
+		},
+		"*mapper": {
+			Input:    &mapper{},
+			Expected: []string{"mapper", "tStruct"},
+		},
+	}
+	New(fn, cases).SubTest(t)
 }

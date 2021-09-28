@@ -254,14 +254,14 @@ func findAllStructs(i interface{}) []interface{} {
 				// get the interface{} so instead create a copy of that field
 				v = reflect.New(v.Type()).Elem()
 			}
+
 			structs = append(structs, findAllStructs(v.Interface())...)
 		}
 	case reflect.Map:
-		m := reflect.ValueOf(i)
-		for _, key := range m.MapKeys() {
-			v := m.MapIndex(key)
-			structs = append(structs, findAllStructs(v.Interface())...)
-		}
+		// since it is possible that we have an empty map
+		// create a copy of the map's value Type and check if its a struct
+		v := reflect.New(reflect.TypeOf(i).Elem()).Elem()
+		structs = append(structs, findAllStructs(v.Interface())...)
 	case reflect.Array:
 		fallthrough
 	case reflect.Slice:
