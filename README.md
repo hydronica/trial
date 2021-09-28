@@ -1,4 +1,4 @@
-# Trial - Prove the Innocents of your code
+# Trial - Prove the Innocence of your code
 
 [![GoDoc](http://img.shields.io/badge/go-documentation-blue.svg?style=flat-square)](https://godoc.org/github.com/hydronica/trial)
 ![Build Status](https://github.com/hydronica/trial/actions/workflows/test.yml/badge.svg)
