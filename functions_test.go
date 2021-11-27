@@ -206,6 +206,30 @@ func TestComparerOptions(t *testing.T) {
 			},
 			Expected: true,
 		},
+		"ignore slice": {
+			Input: input{
+				fn: EqualOpt(IgnoreAllUnexported, IgnoreFields("Child")),
+				v1: []tStruct{{Int: 1, String: "apple", Child: child{Float: 11.234}}},
+				v2: []tStruct{{Int: 1, String: "apple"}},
+			},
+			Expected: true,
+		},
+		"ignore empty slice": {
+			Input: input{
+				fn: EqualOpt(IgnoreAllUnexported, IgnoreFields("Child")),
+				v1: []tStruct{},
+				v2: []tStruct{{Int: 1, String: "apple"}},
+			},
+			ExpectedErr: errors.New(`{Int: 1, String: "apple"},`),
+		},
+		"ignore pointer": {
+			Input: input{
+				fn: EqualOpt(IgnoreAllUnexported, IgnoreFields("Child")),
+				v1: &tStruct{Int: 1, String: "ello", Child: child{Float: 12.34}},
+				v2: &tStruct{Int: 1, String: "ello"},
+			},
+			Expected: true,
+		},
 		"Equate Empty": {
 			Input: input{
 				fn: EqualOpt(IgnoreAllUnexported, EquateEmpty),
@@ -219,6 +243,14 @@ func TestComparerOptions(t *testing.T) {
 				fn: EqualOpt(IgnoreAllUnexported, IgnoreTypes(int(10))),
 				v1: tStruct{Int: 10, String: "ello"},
 				v2: tStruct{String: "ello"},
+			},
+			Expected: true,
+		},
+		"IgnoreTypeSlice": {
+			Input: input{
+				fn: EqualOpt(IgnoreAllUnexported, IgnoreTypes(int(10))),
+				v1: []tStruct{{Int: 10, String: "ello"}},
+				v2: []tStruct{{String: "ello"}},
 			},
 			Expected: true,
 		},

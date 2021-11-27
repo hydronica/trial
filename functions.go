@@ -70,9 +70,7 @@ func contains(x, y interface{}) differ {
 			return nil
 		}
 		return newDiff(x, s)
-	case reflect.Array:
-		fallthrough
-	case reflect.Slice:
+	case reflect.Array, reflect.Slice:
 		if valY.Kind() == reflect.Slice || valY.Kind() == reflect.Array {
 			child := make([]interface{}, valY.Len())
 			for i := 0; i < valY.Len(); i++ {
@@ -177,8 +175,17 @@ func IgnoreAllUnexported(i interface{}) cmp.Option {
 }
 
 // IgnoreFields is a wrapper around the cmpopts.IgnoreFields
+// syntax: IgnoreFields(package.struct.Field)
 func IgnoreFields(f ...string) func(interface{}) cmp.Option {
 	return func(i interface{}) cmp.Option {
+		t := reflect.TypeOf(i)
+		if t.Kind() == reflect.Ptr { // dereference pointers
+			i = reflect.New(t.Elem()).Elem().Interface()
+		}
+		// get the type of element of a slice/array
+		if t.Kind() == reflect.Slice || t.Kind() == reflect.Array {
+			i = reflect.New(t.Elem()).Elem().Interface()
+		}
 		return cmpopts.IgnoreFields(i, f...)
 	}
 }
@@ -262,9 +269,7 @@ func findAllStructs(i interface{}) []interface{} {
 		// create a copy of the map's value Type and check if its a struct
 		v := reflect.New(reflect.TypeOf(i).Elem()).Elem()
 		structs = append(structs, findAllStructs(v.Interface())...)
-	case reflect.Array:
-		fallthrough
-	case reflect.Slice:
+	case reflect.Array, reflect.Slice:
 		s := reflect.ValueOf(i)
 		for i := 0; i < s.Len(); i++ {
 			v := s.Index(i)
