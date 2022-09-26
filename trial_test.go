@@ -317,3 +317,21 @@ func TestInput(t *testing.T) {
 		})
 	}
 }
+
+/*
+// NOTE: UNCOMMENT for verification
+// this test is use to verify that the failure cases
+// in subTest display the line that SubTest is called rather than trial.go:96
+func TestSub(t *testing.T) {
+
+	fn := func(input Input) (interface{}, error) {
+		return 1, nil
+	}
+	cases := Cases{
+		"not equal": {Expected: 12},
+	}
+	New(fn, cases).SubTest(t)
+
+	t.Logf("%q", s)
+}
+*/

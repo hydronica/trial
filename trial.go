@@ -88,6 +88,7 @@ func (t *Trial) SubTest(tst testing.TB) {
 
 	for msg, test := range t.cases {
 		tst.(*testing.T).Run(msg, func(tb *testing.T) {
+			tb.Helper()
 			r := t.testCase(msg, test)
 			if !r.Success {
 				s := strings.Replace(r.Message, "\""+msg+"\"", "", 1)
