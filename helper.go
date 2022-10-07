@@ -6,8 +6,11 @@ import (
 
 // Args converts any number of parameters to an interface.
 // generally used with Case's Input for multiple params
-func Args(args ...interface{}) interface{} {
-	return args
+func Args(args ...interface{}) Input {
+	if len(args) == 1 {
+		return newInput(args[0])
+	}
+	return newInput(args)
 }
 
 // IntP returns a pointer to a defined int
