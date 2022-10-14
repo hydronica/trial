@@ -22,8 +22,8 @@ type (
 	// Symbols with meaning:
 	// "-" elements missing from actual
 	// "+" elements missing from expected
-	CompareFunc           func(actual, expected interface{}) (equal bool, differences string)
-	genFunc[I any, O any] func(in I) (result O, err error)
+	CompareFunc               func(actual, expected interface{}) (equal bool, differences string)
+	testFunc[In any, Out any] func(in In) (result Out, err error)
 )
 
 // Comparer interface is implemented by an object to check for equality
@@ -35,7 +35,7 @@ type Comparer interface {
 // Trial framework used to test different logical states
 type Trial[In any, Out any] struct {
 	cases   map[string]Case[In, Out]
-	testFn  genFunc[In, Out]
+	testFn  testFunc[In, Out]
 	equalFn CompareFunc
 	timeout time.Duration
 }

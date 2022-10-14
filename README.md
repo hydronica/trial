@@ -1,26 +1,34 @@
 # Trial - Prove the Innocence of your code
 
-[![GoDoc](http://img.shields.io/badge/go-documentation-blue.svg?style=flat-square)](https://godoc.org/github.com/hydronica/trial)
+[![GoDoc](https://img.shields.io/badge/go-documentation-blue.svg?style=flat-square)](https://godoc.org/github.com/hydronica/trial)
 ![Build Status](https://github.com/hydronica/trial/actions/workflows/test.yml/badge.svg)
 [![Go Report Card](https://goreportcard.com/badge/github.com/jbsmith7741/trial)](https://goreportcard.com/report/github.com/hydronica/trial)
 [![codecov](https://codecov.io/gh/jbsmith7741/trial/branch/master/graph/badge.svg)](https://codecov.io/gh/hydronica/trial)
 
-Framework to make tests easier to create, maintain and debug.
+Go testing framework to make tests easier to create, maintain and debug.
 
 
 See [wiki](https://github.com/hydronica/trial/wiki) for tips and guides
+
+| [Examples](https://github.com/hydronica/trial/wiki) | [Compare Functions](https://github.com/hydronica/trial/wiki/Comparers) | [Helper Functions](https://github.com/hydronica/trial/wiki/Helpers) |
+
 ## Philosophy
 
-- Tests should be written as [Table Driven Tests](https://github.com/golang/go/wiki/TableDrivenTests) with defined inputs and outputs
-- Each case must have a unique description
-- Tests should be easy to read and change 
-- Test shouldn't take too long to complete
-- Each case should be fully isolated
+- [Table Driven Tests](https://github.com/golang/go/wiki/TableDrivenTests)
+- *Descriptive*
+  - tests should describe the expected behavior of a function
+  - case needs unique description
+  - easy to read and change 
+- *Fast* - the test suite should run in under 5 minutes
+- *Independent*
+  - Each case should be fully isolated
   - doesn't depend on previous cases running
   - order of cases shouldn't matter
+- *Repeatable*: non-flaky, runs regardless of the time of year
+- Test for observable behavior
 
 ## Features 
- - test that a function functions as expected. 
+ - function verification. 
     - Check results for exact matches including private values (default behavior) 
     - Check results for values contained in others (see Contains function) 
     - Allows for custom compare functions 
@@ -38,48 +46,88 @@ See [wiki](https://github.com/hydronica/trial/wiki) for tips and guides
 
 ## Getting Starting
 
- Provide a TestFunc method and test Cases to trial.New and call Test with the *testing.T passed in.
-
-``` go
- trial.New(fn testFunc, cases map[string]trial.Case).Test(t)
+``` go 
+go get github.com/hydronica/trial
 ```
 
-Alternatively to run as each case as a subtest
+Each test has 3 parts to it. A **function** to test against, a set of test **cases** to validate with and **trial** that sets up the table driven tests
 
-``` go
- trial.New(fn testFunc, cases trial.Cases).SubTest(t)
- ```
+### **Test Function**
+``` go 
+testFunc[In any, Out any] func(in In) (result Out, err error)
+```
+a generic function that has a single input and returns a result and an error. Wrap your function to test more complex functions or methods.
 
-### Case
+*Example* 
+``` go 
+  fn := func(i int) (string, error) {
+    return strconv.ItoA(i), nil 
+  }
 
-- **Input struct** - a convenience structure to handle input more dynamically 
+```
+
+
+### **Cases**
+a collection (map) of test cases that have a unique title and defined *input* to be passed to the test function. The expected behavior is described by provided an *output*, *ExpectedErr* or specified a generic error with *ShouldErr*. *ShouldPanic* can be used in the rare cases of function that need to panic. 
+``` go 
+type Case[In any, Out any] struct {
+	Input    In
+	Expected Out
+
+
+	ShouldErr   bool  // is an error expected
+	ExpectedErr error // the error that was expected (nil is no error expected)
+	ShouldPanic bool  // is a panic expected
+}
+```
+Each 
+
+- **Input** *generic* - a convenience structure to handle input more dynamically 
   - Smart type conversion were possible ("12" can be converted to int)
-- **Expected interface{}** - the expected output of the method being tested.
+- **Expected** *generic* - the expected output of the method being tested.
   - This is compared with the result from the TestFunc
-- **ShouldErr bool** - indicates the method should return an error
-- **ExpectedErr error** - verifies the method returns the same error as provided.
+- **ShouldErr** *bool* - indicates the function should return an error
+- **ExpectedErr** *error* - verifies the function error string matches the result
   - uses strings.Contains to check
   - also implies that the method should error so setting ShouldErr to true is not required
-- **ShouldPanic bool** - indicates the method should panic
+  - use *ErrType* to test that the error is the same type as expected. 
+- **ShouldPanic** *bool* - indicates the method should panic
 
-### TestFunc
+
+### Trial Setup
+
+Run the test cases either within a single test function or as subtests. The *input* and *output* values must match between the test function and cases. 
 
 ``` go
-  TestFunc  func(in Input) (result interface{}, err error)
+trial.New(fn,cases).Test(t)
+// or 
+trial.New(fn,cases).SubTest(t)
 ```
 
-- **in Input** - the arguments to be passed as parameters to the method.
-  - convert to the Input type. (String(), Int(), Bool(), Map(), Slice(), Interface())
-- **output interface{}** - the result from the test that is compared with Case.Expected
-- **err error** - any errors that occur during test, return nil if no errors occur.
+By default trial uses a strict matching values and uses cmp.Equal to compare values. *Compare* Functions can be customized to ignore certain fields or are contained withing maps, slices or strings. See **Compare Functions** for more details. A timeout can be added onto the trial builder with `.Timeout(time.Second)` 
 
-### Examples
+### Getting Started Template 
+``` go  
+fn := func(in any) (any, error) {
+    // TODO: setup test case, call routine and return result
+    return nil, nil
+}
+cases := trail.Cases{
+    "default": {
+        Input:    123,
+        Expected: 1,
+    },
+}
+trial.New(fn,cases).Test(t)
+```
+
+For more examples see the [wiki](https://github.com/hydronica/trial/wiki)
 
 # Compare Functions
 used to compare two values to determine equality and displayed a detailed string describing any differences.
 
 ``` go
-func(actual, expected interface{}) (equal bool, differences string)
+func(actual, expected any) (equal bool, differences string)
 ```
 
 override the default
