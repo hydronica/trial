@@ -11,6 +11,7 @@ Go testing framework to make tests easier to create, maintain and debug.
 See [wiki](https://github.com/hydronica/trial/wiki) for tips and guides
 
 | [Examples](https://github.com/hydronica/trial/wiki) | [Compare Functions](https://github.com/hydronica/trial/wiki/Comparers) | [Helper Functions](https://github.com/hydronica/trial/wiki/Helpers) |
+|-|-|-|
 
 ## Philosophy
 
@@ -68,7 +69,7 @@ a generic function that has a single input and returns a result and an error. Wr
 
 
 ### **Cases**
-a collection (map) of test cases that have a unique title and defined *input* to be passed to the test function. The expected behavior is described by provided an *output*, *ExpectedErr* or specified a generic error with *ShouldErr*. *ShouldPanic* can be used in the rare cases of function that need to panic. 
+a collection (map) of test cases that have a unique title and defined *input* to be passed to the test function. The expected behavior is described by providing an *output*, setting an *ExpectedErr* or saying it *ShouldErr*. *ShouldPanic* can be used to test when function panic condition.  
 ``` go 
 type Case[In any, Out any] struct {
 	Input    In
@@ -83,7 +84,6 @@ type Case[In any, Out any] struct {
 Each 
 
 - **Input** *generic* - a convenience structure to handle input more dynamically 
-  - Smart type conversion were possible ("12" can be converted to int)
 - **Expected** *generic* - the expected output of the method being tested.
   - This is compared with the result from the TestFunc
 - **ShouldErr** *bool* - indicates the function should return an error
