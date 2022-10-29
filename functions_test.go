@@ -22,11 +22,11 @@ func TestEqualFn(t *testing.T) {
 	type maper struct {
 		myMap map[string]test
 	}
-	fn := func(in Input) (interface{}, error) {
+	fn := func(in Input) (bool, error) {
 		r, _ := Equal(in.Slice(0).Interface(), in.Slice(1).Interface())
 		return r, nil
 	}
-	cases := Cases{"strings are equal": {
+	cases := Cases[Input, bool]{"strings are equal": {
 		Input:    Args("hello", "hello"),
 		Expected: true,
 	},
@@ -144,15 +144,15 @@ func TestComparerOptions(t *testing.T) {
 		v1 interface{}
 		v2 interface{}
 	}
-	fn := func(in Input) (interface{}, error) {
-		i := in.Interface().(input)
-		eq, diff := i.fn(i.v1, i.v2)
+	fn := func(in input) (bool, error) {
+
+		eq, diff := in.fn(in.v1, in.v2)
 		if !eq {
-			return nil, errors.New(diff)
+			return false, errors.New(diff)
 		}
 		return eq, nil
 	}
-	cases := Cases{
+	cases := Cases[input, bool]{
 		"compare unexported": {
 			Input: input{
 				fn: EqualOpt(AllowAllUnexported),
@@ -301,14 +301,14 @@ func TestContainsFn(t *testing.T) {
 		Value int
 	}
 
-	New(func(in Input) (interface{}, error) {
+	New(func(in Input) (bool, error) {
 		b, s := Contains(in.Slice(0).Interface(), in.Slice(1).Interface())
 		var err error
 		if s != "" {
 			err = errors.New(s)
 		}
 		return b, err
-	}, map[string]Case{
+	}, map[string]Case[Input, bool]{
 		"blank string matches anything": {
 			Input:    Args("Hello world", ""),
 			Expected: true,
@@ -446,11 +446,11 @@ func TestContainsFn(t *testing.T) {
 }
 
 func TestCmpFuncs(t *testing.T) {
-	fn := func(in Input) (interface{}, error) {
+	fn := func(in Input) (string, error) {
 		_, s := CmpFuncs(in.Slice(0).Interface(), in.Slice(1).Interface())
 		return s, nil
 	}
-	New(fn, Cases{
+	New(fn, Cases[Input, string]{
 		"x & y are nil": {
 			Input:    Args(nil, nil),
 			Expected: "",
@@ -481,16 +481,16 @@ func TestFindAllStructs(t *testing.T) {
 	type mapper struct {
 		m map[string]tStruct
 	}
-	fn := func(in Input) (interface{}, error) {
+	fn := func(in any) ([]string, error) {
 		result := make([]string, 0)
-		for _, v := range findAllStructs(in.Interface()) {
+		for _, v := range findAllStructs(in) {
 			s := reflect.TypeOf(v).Name()
 			result = append(result, s)
 		}
 
 		return result, nil
 	}
-	cases := Cases{
+	cases := Cases[any, []string]{
 		"struct": {
 			Input:    tStruct{},
 			Expected: []string{"tStruct"},

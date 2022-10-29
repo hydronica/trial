@@ -7,7 +7,7 @@ import (
 )
 
 // Input the input value given to the trial test function
-type Input struct {
+type Input struct { // TODO: try type Input interface{}
 	value reflect.Value
 }
 

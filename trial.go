@@ -22,7 +22,8 @@ type (
 	// Symbols with meaning:
 	// "-" elements missing from actual
 	// "+" elements missing from expected
-	CompareFunc func(actual, expected interface{}) (equal bool, differences string)
+	CompareFunc               func(actual, expected interface{}) (equal bool, differences string)
+	testFunc[In any, Out any] func(in In) (result Out, err error)
 )
 
 // Comparer interface is implemented by an object to check for equality
@@ -32,20 +33,20 @@ type Comparer interface {
 }
 
 // Trial framework used to test different logical states
-type Trial struct {
-	cases   map[string]Case
-	testFn  TestFunc
+type Trial[In any, Out any] struct {
+	cases   map[string]Case[In, Out]
+	testFn  testFunc[In, Out]
 	equalFn CompareFunc
 	timeout time.Duration
 }
 
 // Cases made during the trial
-type Cases map[string]Case
+type Cases[In any, Out any] map[string]Case[In, Out]
 
 // Case made during the trial of your code
-type Case struct {
-	Input    interface{}
-	Expected interface{}
+type Case[In any, Out any] struct {
+	Input    In
+	Expected Out
 
 	// testing conditions
 	ShouldErr   bool  // is an error expected
@@ -53,12 +54,12 @@ type Case struct {
 	ShouldPanic bool  // is a panic expected
 }
 
-// New trial for your code
-func New(fn TestFunc, cases map[string]Case) *Trial {
+func New[In any, Out any](fn func(In) (Out, error), cases map[string]Case[In, Out]) *Trial[In, Out] {
 	if cases == nil {
-		cases = make(map[string]Case)
+		cases = make(map[string]Case[In, Out])
 	}
-	return &Trial{
+
+	return &Trial[In, Out]{
 		cases:   cases,
 		testFn:  fn,
 		equalFn: Equal,
@@ -68,20 +69,20 @@ func New(fn TestFunc, cases map[string]Case) *Trial {
 // EqualFn override the default comparison method used.
 // see ContainsFn(x, y interface{}) (bool, string)
 // deprecated
-func (t *Trial) EqualFn(fn CompareFunc) *Trial {
+func (t *Trial[In, Out]) EqualFn(fn CompareFunc) *Trial[In, Out] {
 	return t.Comparer(fn)
 }
 
 // Comparer override the default comparison function.
 // see Contains(x, y interface{}) (bool, string)
 // see Equals(x, y interface{}) (bool, string)
-func (t *Trial) Comparer(fn CompareFunc) *Trial {
+func (t *Trial[In, Out]) Comparer(fn CompareFunc) *Trial[In, Out] {
 	t.equalFn = fn
 	return t
 }
 
 // SubTest runs all cases as individual subtests
-func (t *Trial) SubTest(tst testing.TB) {
+func (t *Trial[In, Out]) SubTest(tst testing.TB) {
 	if h, ok := tst.(tHelper); ok {
 		h.Helper()
 	}
@@ -101,13 +102,13 @@ func (t *Trial) SubTest(tst testing.TB) {
 
 // Timeout will make sure that a test case has finished
 // within the timeout or the test will fail.
-func (t *Trial) Timeout(d time.Duration) *Trial {
+func (t *Trial[In, Out]) Timeout(d time.Duration) *Trial[In, Out] {
 	t.timeout = d
 	return t
 }
 
 // Test all cases provided
-func (t *Trial) Test(tst testing.TB) {
+func (t *Trial[In, Out]) Test(tst testing.TB) {
 	if h, ok := tst.(tHelper); ok {
 		h.Helper()
 	}
@@ -121,7 +122,7 @@ func (t *Trial) Test(tst testing.TB) {
 	}
 }
 
-func (t *Trial) testCase(msg string, test Case) result {
+func (t *Trial[In, Out]) testCase(msg string, test Case[In, Out]) result {
 	// setup
 	done := make(chan *result)
 	ctx := context.Background()
@@ -144,7 +145,7 @@ func (t *Trial) testCase(msg string, test Case) result {
 			}
 			done <- r // send result to channel
 		}()
-		r.value, r.err = t.testFn(newInput(test.Input))
+		r.value, r.err = t.testFn(test.Input)
 	}()
 	result := &result{}
 	select {
