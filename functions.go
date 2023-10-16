@@ -3,6 +3,7 @@ package trial
 import (
 	"fmt"
 	"reflect"
+	"sort"
 	"strings"
 	"time"
 
@@ -166,12 +167,12 @@ func EqualOpt(optFns ...func(i interface{}) cmp.Option) func(actual, expected in
 
 // AllowAllUnexported sets cmp.Diff to allow all unexported (private) variables
 func AllowAllUnexported(i interface{}) cmp.Option {
-	return cmp.AllowUnexported(findAllStructs(i)...)
+	return cmp.AllowUnexported(findAllStructs(i, nil)...)
 }
 
 // IgnoreAllUnexported sets cmp.Diff to ignore all unexported (private) variables
 func IgnoreAllUnexported(i interface{}) cmp.Option {
-	return cmpopts.IgnoreUnexported(findAllStructs(i)...)
+	return cmpopts.IgnoreUnexported(findAllStructs(i, nil)...)
 }
 
 // IgnoreFields is a wrapper around the cmpopts.IgnoreFields
@@ -223,26 +224,56 @@ func EquateEmpty(i interface{}) cmp.Option {
 	return cmpopts.EquateEmpty()
 }
 
-func findAllStructs(i interface{}) []interface{} {
-	structs := make([]interface{}, 0)
+type structMap map[string]any // [Name]struct
+
+func (s structMap) Add(vals ...any) {
+	for _, v := range vals {
+		s[reflect.TypeOf(v).Name()] = v
+	}
+}
+
+func (s structMap) List() []any {
+	vals := make([]any, len(s))
+	i := 0
+	for _, v := range s {
+		vals[i] = v
+		i++
+	}
+	sort.Slice(vals, func(i, j int) bool {
+		return reflect.TypeOf(vals[i]).Name() < reflect.TypeOf(vals[j]).Name()
+
+	})
+	return vals
+}
+
+func findAllStructs(i any, structs structMap) []any {
+	if structs == nil {
+		structs = make(structMap)
+	}
+	for _, v := range structs {
+		if reflect.TypeOf(v) == reflect.TypeOf(i) {
+			return []any{}
+		}
+	}
+
 	t := reflect.TypeOf(i)
 	// skip invalid types
 	if t == nil {
-		return structs
+		return []any{}
 	}
 	// add struct and pointers to struct
 	switch t.Kind() {
 	case reflect.Ptr:
 		if t.Elem().Kind() != reflect.Struct {
-			return structs
+			return []any{}
 		}
 		if reflect.ValueOf(i).IsNil() {
-			return structs
+			return []any{}
 		}
 		i = reflect.ValueOf(i).Elem().Interface()
 		fallthrough
 	case reflect.Struct:
-		structs = append(structs, i)
+		structs.Add(i)
 
 		rStruct := reflect.ValueOf(i)
 
@@ -253,33 +284,32 @@ func findAllStructs(i interface{}) []interface{} {
 				// to support unexported (private) fields we need to create a copy
 				// of the field and then dereference the pointer to that struct
 				i = reflect.New(v.Elem().Type()).Elem().Interface()
-				structs = append(structs, findAllStructs(i)...)
+				structs.Add(findAllStructs(i, structs)...)
 				continue
 			}
 			if !v.CanInterface() {
 				// if the field is unexported (private) we wouldn't be able
-				// get the interface{} so instead create a copy of that field
+				// to get the interface{} so instead create a copy of that field
 				v = reflect.New(v.Type()).Elem()
 			}
-
-			structs = append(structs, findAllStructs(v.Interface())...)
+			structs.Add(findAllStructs(v.Interface(), structs)...)
 		}
 	case reflect.Map:
 		// since it is possible that we have an empty map
-		// create a copy of the map's value Type and check if its a struct
+		// create a copy of the map's value Type and check if it's a struct
 		v := reflect.New(reflect.TypeOf(i).Elem()).Elem()
-		structs = append(structs, findAllStructs(v.Interface())...)
+		structs.Add(findAllStructs(v.Interface(), structs)...)
 	case reflect.Array, reflect.Slice:
 		s := reflect.ValueOf(i)
 		for i := 0; i < s.Len(); i++ {
 			v := s.Index(i)
-			structs = append(structs, findAllStructs(v.Interface())...)
+			structs.Add(findAllStructs(v.Interface(), structs)...)
 		}
 	default:
-		return structs
+		return []any{}
 	}
 
-	return structs
+	return structs.List()
 }
 
 // CmpFuncs tries to determine if x is the same function as y.
@@ -316,7 +346,7 @@ func newMessagef(s string, args ...interface{}) message {
 	return message(fmt.Sprintf(s, args...))
 }
 
-//collection is a differ used for slices to show what items match and which don't
+// collection is a differ used for slices to show what items match and which don't
 type collection struct {
 	found   []interface{}
 	missing []interface{}
