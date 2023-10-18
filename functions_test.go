@@ -478,12 +478,16 @@ func TestFindAllStructs(t *testing.T) {
 	type tStruct struct {
 		Apple int
 	}
+	type recurse struct {
+		A *recurse
+		B map[string]recurse
+	}
 	type mapper struct {
 		m map[string]tStruct
 	}
 	fn := func(in any) ([]string, error) {
 		result := make([]string, 0)
-		for _, v := range findAllStructs(in) {
+		for _, v := range findAllStructs(in, nil) {
 			s := reflect.TypeOf(v).Name()
 			result = append(result, s)
 		}
@@ -502,6 +506,10 @@ func TestFindAllStructs(t *testing.T) {
 		"*mapper": {
 			Input:    &mapper{},
 			Expected: []string{"mapper", "tStruct"},
+		},
+		"self ref": {
+			Input:    recurse{A: &recurse{}},
+			Expected: []string{"recurse"},
 		},
 	}
 	New(fn, cases).SubTest(t)
