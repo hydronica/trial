@@ -297,12 +297,27 @@ func findAllStructs(i any, structs structMap) []any {
 	case reflect.Map:
 		// since it is possible that we have an empty map
 		// create a copy of the map's value Type and check if it's a struct
-		v := reflect.New(reflect.TypeOf(i).Elem()).Elem()
+		valType := reflect.TypeOf(i).Elem()
+		// if the map's value Type is a pointer, deference it to avoid pointers to pointers.
+		if valType.Kind() == reflect.Pointer {
+			valType = valType.Elem()
+		}
+		v := reflect.New(valType).Elem()
 		structs.Add(findAllStructs(v.Interface(), structs)...)
 	case reflect.Array, reflect.Slice:
-		s := reflect.ValueOf(i)
-		for i := 0; i < s.Len(); i++ {
-			v := s.Index(i)
+
+		arrType := reflect.TypeOf(i).Elem()
+		if arrType.Kind() == reflect.Interface {
+			s := reflect.ValueOf(i)
+			for j := 0; j < s.Len(); j++ {
+				v := s.Index(j)
+				structs.Add(findAllStructs(v.Interface(), structs)...)
+			}
+		} else {
+			if arrType.Kind() == reflect.Pointer {
+				arrType = arrType.Elem()
+			}
+			v := reflect.New(arrType).Elem()
 			structs.Add(findAllStructs(v.Interface(), structs)...)
 		}
 	default:

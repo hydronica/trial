@@ -478,6 +478,9 @@ func TestFindAllStructs(t *testing.T) {
 	type tStruct struct {
 		Apple int
 	}
+	type s2 struct {
+		count int
+	}
 	type recurse struct {
 		A *recurse
 		B map[string]recurse
@@ -510,6 +513,34 @@ func TestFindAllStructs(t *testing.T) {
 		"self ref": {
 			Input:    recurse{A: &recurse{}},
 			Expected: []string{"recurse"},
+		},
+		"map pointer": {
+			Input:    map[string]*tStruct{},
+			Expected: []string{"tStruct"},
+		},
+		"map nil": {
+			Input:    map[string]*tStruct(nil),
+			Expected: []string{"tStruct"},
+		},
+		"slice pointer": {
+			Input:    []*tStruct{},
+			Expected: []string{"tStruct"},
+		},
+		"slice nil": {
+			Input:    []tStruct(nil),
+			Expected: []string{"tStruct"},
+		},
+		"slice any": {
+			Input:    []any{tStruct{}, s2{}},
+			Expected: []string{"s2", "tStruct"},
+		},
+		"pSlice": { // Not Supported
+			Input:    &[]tStruct{},
+			Expected: []string{}, // []string{"tStruct"}
+		},
+		"pMap": { // Not Supported
+			Input:    &map[string]tStruct{},
+			Expected: []string{}, // []string{"tStruct"},
 		},
 	}
 	New(fn, cases).SubTest(t)
