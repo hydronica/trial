@@ -149,6 +149,22 @@ Customize the use of cmp.Equal with the following supported options:
   - `IgnoreTypes(values ...interface{})` - ignore all types of the values passed in. Ex: IgnoreTypes(int64(0), float32(0.0)) ignore int64 and float32
   - `ApproxTime(d time.Duration)` - approximates time values to to the nearest duration. 
 
+``` go
+// example struct that is compared to expected
+type Example struct {
+  Field1     int
+  Field2     int
+  ignoreMe   string     // ignored unexported
+  Timestamp  time.Time  // ignored
+  LastUpdate time.Time  // ignored
+}
+
+	trial.New(fn, cases).Comparer(
+		trial.EqualOpt(
+			trial.IgnoreAllUnexported,
+			trial.IgnoreFields("Timestamp", "LastUpdate")),
+	).SubTest(t)
+```
   
 ## Contains ⊇
 
