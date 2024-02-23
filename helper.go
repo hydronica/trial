@@ -74,7 +74,7 @@ func TimeHour(value string) time.Time {
 // Deprecated: TimeDay is a helper method for parsing times with day precision.
 // format 2006-01-02
 func TimeDay(value string) time.Time {
-	return Time(time.DateOnly, value)
+	return Time("2006-01-02", value)
 }
 
 // Deprecated: IntP returns a pointer to a defined int
