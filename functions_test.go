@@ -85,8 +85,8 @@ func TestEqualFn(t *testing.T) {
 		},
 		"map with *pointer struct": {
 			Input: Args(
-				map[string]grandparent{"a": {t: TimeHour("2018-01-01T00")}},
-				map[string]grandparent{"a": {t: TimeHour("2018-01-01T00")}},
+				map[string]grandparent{"a": {t: Hour("2018-01-01T00")}},
+				map[string]grandparent{"a": {t: Hour("2018-01-01T00")}},
 			),
 			Expected: true,
 		},

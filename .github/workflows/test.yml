@@ -1,4 +1,7 @@
-on: [push, pull_request]
+on:
+  push:
+  pull_request:
+    types: [opened, reopened, synchronize]
 name: Test
 jobs:
   test:
