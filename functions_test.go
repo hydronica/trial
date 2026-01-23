@@ -78,8 +78,8 @@ func TestEqualFn(t *testing.T) {
 		},
 		"private key in map": {
 			Input: Args(
-				map[test]string{test{Public: 1, private: "a"}: "apple"},
-				map[test]string{test{Public: 1, private: "a"}: "apple"},
+				map[test]string{{Public: 1, private: "a"}: "apple"},
+				map[test]string{{Public: 1, private: "a"}: "apple"},
 			),
 			Expected: true,
 		},
@@ -90,7 +90,7 @@ func TestEqualFn(t *testing.T) {
 			),
 			Expected: true,
 		},
-		"embeded map": {
+		"embedded map": {
 			Input: Args(
 				&maper{myMap: map[string]test{"a": {private: "pritate", Public: 10}}},
 				&maper{myMap: map[string]test{"a": {private: "pritate", Public: 10}}},

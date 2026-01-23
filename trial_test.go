@@ -187,23 +187,23 @@ func TestInput(t *testing.T) {
 		expected    interface{}
 	}
 	cases := map[string]tester{
-		"string": tester{
+		"string": {
 			fn:       func() interface{} { return newInput("hello world").String() },
 			expected: "hello world",
 		},
-		"string (int)": tester{
+		"string (int)": {
 			fn:       func() interface{} { return newInput(123).String() },
 			expected: "123",
 		},
-		"string (float)": tester{
+		"string (float)": {
 			fn:       func() interface{} { return newInput(12.8).String() },
 			expected: "12.8",
 		},
-		"string (bool)": tester{
+		"string (bool)": {
 			fn:       func() interface{} { return newInput(true).String() },
 			expected: "true",
 		},
-		"string panic": tester{
+		"string panic": {
 			fn:          func() interface{} { return newInput(struct{}{}).String() },
 			shouldPanic: true,
 		},
