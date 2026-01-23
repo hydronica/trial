@@ -105,6 +105,37 @@ trial.EqualOpt(
 
 **Use case:** Ignoring auto-generated fields like timestamps or IDs.
 
+#### IgnoreFieldsOf (Embedded Structs)
+
+Ignore specific fields on a given struct type. Use this when ignoring fields in embedded structs where `IgnoreFields` cannot infer the correct type.
+
+```go
+func IgnoreFieldsOf(structType interface{}, fields ...string) func(interface{}) cmp.Option
+```
+
+```go
+type Metadata struct {
+    CreatedAt time.Time
+    UpdatedAt time.Time
+    Version   int
+}
+
+type User struct {
+    ID       int
+    Name     string
+    Metadata // embedded struct
+}
+
+// To ignore fields in the embedded Metadata struct:
+trial.New(fn, cases).Comparer(
+    trial.EqualOpt(
+        trial.IgnoreFieldsOf(Metadata{}, "CreatedAt", "UpdatedAt"),
+    ),
+).SubTest(t)
+```
+
+**Use case:** Ignoring fields in embedded structs where `trial.IgnoreFields` doesn't reach the nested type.
+
 #### IgnoreTypes
 
 Ignore all values of specified types.
@@ -348,6 +379,7 @@ trial.New(fn, cases).Comparer(WithinTolerance(0.001)).Test(t)
 |----------|---------------------|
 | Exact equality (default) | `Equal` |
 | Ignore specific fields | `EqualOpt(IgnoreFields(...))` |
+| Ignore embedded struct fields | `EqualOpt(IgnoreFieldsOf(EmbeddedType{}, ...))` |
 | Ignore private fields | `EqualOpt(IgnoreAllUnexported)` |
 | Ignore timestamps | `EqualOpt(IgnoreFields(...))` or `ApproxTime(...)` |
 | Substring/subset matching | `Contains` |

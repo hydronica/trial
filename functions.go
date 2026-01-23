@@ -27,11 +27,11 @@ func Contains(x, y interface{}) (bool, string) {
 	return false, r.String()
 }
 
-const (
-	SubStrings = iota
-	SubSlices
-	SubMaps
-)
+// const (
+// 	SubStrings = iota
+// 	SubSlices
+// 	SubMaps
+// )
 
 // ContainsOpt allow configurable options to the contains method
 // 1. Check for sub-strings ("abc" -> "abcdefg")
@@ -188,6 +188,17 @@ func IgnoreFields(f ...string) func(interface{}) cmp.Option {
 			i = reflect.New(t.Elem()).Elem().Interface()
 		}
 		return cmpopts.IgnoreFields(i, f...)
+	}
+}
+
+// IgnoreFieldsOf ignores specific fields on a given struct type.
+// Use this when ignoring fields in embedded structs where IgnoreFields
+// cannot infer the correct type.
+//
+//	trial.EqualOpt(trial.IgnoreFieldsOf(Metadata{}, "CreatedAt", "UpdatedAt"))
+func IgnoreFieldsOf(structType interface{}, fields ...string) func(interface{}) cmp.Option {
+	return func(_ interface{}) cmp.Option {
+		return cmpopts.IgnoreFields(structType, fields...)
 	}
 }
 
