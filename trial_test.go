@@ -318,6 +318,46 @@ func TestInput(t *testing.T) {
 	}
 }
 
+func TestParallel(t *testing.T) {
+	fn := func(in int) (int, error) {
+		time.Sleep(10 * time.Millisecond) // small delay to verify parallelism
+		return in * 2, nil
+	}
+
+	cases := map[string]Case[int, int]{
+		"double 1": {Input: 1, Expected: 2},
+		"double 2": {Input: 2, Expected: 4},
+		"double 3": {Input: 3, Expected: 6},
+		"double 4": {Input: 4, Expected: 8},
+	}
+
+	// Test that Parallel() returns the Trial for chaining
+	tr := New(fn, cases).Parallel()
+	if tr == nil {
+		t.Fatal("Parallel() should return the Trial")
+	}
+
+	// Test that parallel subtests execute correctly
+	tr.SubTest(t)
+}
+
+func TestParallel_Chaining(t *testing.T) {
+	fn := func(in int) (int, error) {
+		return in, nil
+	}
+
+	cases := map[string]Case[int, int]{
+		"pass through": {Input: 42, Expected: 42},
+	}
+
+	// Test chaining with other methods
+	New(fn, cases).
+		Parallel().
+		Timeout(time.Second).
+		Comparer(Equal).
+		SubTest(t)
+}
+
 /*
 // NOTE: UNCOMMENT for verification
 // this test is use to verify that the failure cases

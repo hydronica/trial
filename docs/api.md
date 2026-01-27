@@ -42,6 +42,7 @@ type CompareFunc func(actual, expected interface{}) (equal bool, differences str
 | `.SubTest(t)` | Run each case as subtest (recommended) |
 | `.Comparer(fn)` | Set custom comparison function |
 | `.Timeout(d)` | Set max duration per case |
+| `.Parallel()` | Enable parallel execution for subtests (use with `SubTest()`) |
 
 ## Case Fields
 
