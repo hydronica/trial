@@ -3,6 +3,7 @@ package trial
 import (
 	"context"
 	"fmt"
+	"os"
 	"reflect"
 	"runtime/debug"
 	"strings"
@@ -11,6 +12,41 @@ import (
 )
 
 var localTest = false
+
+var colorEnabled bool
+
+func init() {
+	// Respect NO_COLOR standard (https://no-color.org/)
+	if _, noColor := os.LookupEnv("NO_COLOR"); noColor {
+		colorEnabled = false
+		return
+	}
+	// Force colors if requested
+	if _, forceColor := os.LookupEnv("FORCE_COLOR"); forceColor {
+		colorEnabled = true
+		return
+	}
+	// Check TERM environment variable (most terminals set this)
+	// Empty or "dumb" means no color support
+	t := os.Getenv("TERM")
+	colorEnabled = t != "" && t != "dumb"
+}
+
+// colorRed wraps text in red ANSI color codes if colors are enabled.
+func colorRed(s string) string {
+	if colorEnabled {
+		return "\033[31m" + s + "\033[0m"
+	}
+	return s
+}
+
+// colorGreen wraps text in green ANSI color codes if colors are enabled.
+func colorGreen(s string) string {
+	if colorEnabled {
+		return "\033[32m" + s + "\033[0m"
+	}
+	return s
+}
 
 type (
 	// TestFunc a wrapper function used to setup the method being tested.
@@ -107,7 +143,7 @@ func (t *Trial[In, Out]) SubTest(tst testing.TB) {
 			if !r.Success {
 				s := strings.Replace(r.Message, "\""+msg+"\"", "", 1)
 				s = strings.Replace(s, "FAIL:", "", 1)
-				tb.Error("\033[31m" + strings.TrimLeft(s, " \n") + "\033[39m")
+				tb.Error(colorRed(strings.TrimLeft(s, " \n")))
 			}
 		})
 	}
@@ -128,9 +164,9 @@ func (t *Trial[In, Out]) Test(tst testing.TB) {
 	for msg, test := range t.cases {
 		r := t.testCase(msg, test)
 		if r.Success {
-			tst.Log(r.Message)
+			tst.Log(colorGreen(r.Message))
 		} else {
-			tst.Error("\033[31m" + r.Message + "\033[39m")
+			tst.Error(colorRed(r.Message))
 		}
 	}
 }

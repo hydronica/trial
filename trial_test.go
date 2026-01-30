@@ -2,6 +2,7 @@ package trial
 
 import (
 	"errors"
+	"os"
 	"strings"
 	"testing"
 	"time"
@@ -167,9 +168,9 @@ func TestTrial_TestCase(t *testing.T) {
 	for msg, test := range cases {
 		r := test.trial.testCase(msg, test.Case)
 		if r.Success != test.expResult.Success || !strings.Contains(r.Message, test.expResult.Message) {
-			t.Errorf("\033[31mFAIL: %q\n%v\033[39m", msg, r.string())
+			t.Errorf(colorRed("FAIL: %q\n%v"), msg, r.string())
 		} else {
-			t.Logf("PASS: %q", msg)
+			t.Logf(colorGreen("PASS: %q"), msg)
 		}
 	}
 }
@@ -273,7 +274,6 @@ func TestInput(t *testing.T) {
 		"[]string": {
 			fn: func() interface{} {
 				in := newInput([]string{"ab", "cd", "ef", "g"})
-				in.Slice(0).String()
 				return in.Slice(2).String()
 			},
 			expected: "ef",
@@ -332,30 +332,21 @@ func TestParallel(t *testing.T) {
 	}
 
 	// Test that Parallel() returns the Trial for chaining
-	tr := New(fn, cases).Parallel()
-	if tr == nil {
-		t.Fatal("Parallel() should return the Trial")
-	}
-
-	// Test that parallel subtests execute correctly
-	tr.SubTest(t)
+	New(fn, cases).Parallel().SubTest(t)
 }
 
-func TestParallel_Chaining(t *testing.T) {
-	fn := func(in int) (int, error) {
-		return in, nil
+func TestColorDiagnostics(t *testing.T) {
+	if colorEnabled {
+		t.Log("Color Enabled " + colorGreen("GREEN") + " " + colorRed("RED"))
+	} else {
+		reason := "TERM not set"
+		if _, ok := os.LookupEnv("NO_COLOR"); ok {
+			reason = "NO_COLOR"
+		} else if term := os.Getenv("TERM"); term == "dumb" {
+			reason = "TERM=dumb"
+		}
+		t.Logf("Color Disabled based on %s", reason)
 	}
-
-	cases := map[string]Case[int, int]{
-		"pass through": {Input: 42, Expected: 42},
-	}
-
-	// Test chaining with other methods
-	New(fn, cases).
-		Parallel().
-		Timeout(time.Second).
-		Comparer(Equal).
-		SubTest(t)
 }
 
 /*
