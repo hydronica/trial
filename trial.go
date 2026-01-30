@@ -34,10 +34,11 @@ type Comparer interface {
 
 // Trial framework used to test different logical states
 type Trial[In any, Out any] struct {
-	cases   map[string]Case[In, Out]
-	testFn  testFunc[In, Out]
-	equalFn CompareFunc
-	timeout time.Duration
+	cases    map[string]Case[In, Out]
+	testFn   testFunc[In, Out]
+	equalFn  CompareFunc
+	timeout  time.Duration
+	parallel bool
 }
 
 // Cases made during the trial
@@ -81,6 +82,14 @@ func (t *Trial[In, Out]) Comparer(fn CompareFunc) *Trial[In, Out] {
 	return t
 }
 
+// Parallel enables parallel execution for subtests in SubTest().
+// When enabled, each case runs as a parallel subtest using t.Parallel().
+// Note: Test cases must be thread-safe when using this option.
+func (t *Trial[In, Out]) Parallel() *Trial[In, Out] {
+	t.parallel = true
+	return t
+}
+
 // SubTest runs all cases as individual subtests
 func (t *Trial[In, Out]) SubTest(tst testing.TB) {
 	if h, ok := tst.(tHelper); ok {
@@ -88,8 +97,12 @@ func (t *Trial[In, Out]) SubTest(tst testing.TB) {
 	}
 
 	for msg, test := range t.cases {
+		msg, test := msg, test // capture loop variables for parallel execution (Go <1.22)
 		tst.(*testing.T).Run(msg, func(tb *testing.T) {
 			tb.Helper()
+			if t.parallel {
+				tb.Parallel()
+			}
 			r := t.testCase(msg, test)
 			if !r.Success {
 				s := strings.Replace(r.Message, "\""+msg+"\"", "", 1)

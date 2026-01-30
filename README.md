@@ -41,6 +41,8 @@ Go testing framework to make tests easier to create, maintain and debug.
     - Check that an error is of expected type: `ExpectedErr: ErrType(err)`
   - Fail tests that take too long to complete
     - `trial.New(fn,cases).Timeout(time.Second)`
+  - Run subtests in parallel for faster execution
+    - `trial.New(fn,cases).Parallel().SubTest(t)`
 
 ## Getting Started
 
@@ -102,7 +104,7 @@ trial.New(fn,cases).Test(t)
 trial.New(fn,cases).SubTest(t)
 ```
 
-By default trial uses strict matching values and uses cmp.Equal to compare values. *Compare* functions can be customized to ignore certain fields or are contained within maps, slices or strings. See [Comparers](docs/comparers.md) for more details. A timeout can be added onto the trial builder with `.Timeout(time.Second)` 
+By default trial uses strict matching values and uses cmp.Equal to compare values. *Compare* functions can be customized to ignore certain fields or are contained within maps, slices or strings. See [Comparers](docs/comparers.md) for more details. A timeout can be added onto the trial builder with `.Timeout(time.Second)`. For faster test execution, subtests can run in parallel with `.Parallel()` (test cases must be thread-safe) 
 
 ### Getting Started Template 
 

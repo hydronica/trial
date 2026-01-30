@@ -14,6 +14,7 @@ Practical examples for using the `hydronica/trial` testing framework.
 - [Using Helpers](#using-helpers)
 - [Custom Comparers](#custom-comparers)
 - [Timeout](#timeout)
+- [Parallel Execution](#parallel-execution)
 - [Complete Example](#complete-example)
 
 ---
@@ -205,6 +206,7 @@ trial.New(fn, cases).SubTest(t)
 - CI/CD systems that track individual test results
 - Run specific cases: `go test -run "TestName/case_name"`
 - Better test isolation and reporting
+- Parallel execution with `.Parallel()`
 
 ---
 
@@ -310,6 +312,55 @@ Fail cases that take too long:
 ```go
 trial.New(fn, cases).Timeout(time.Second).Test(t)
 ```
+
+---
+
+## Parallel Execution
+
+Run subtests concurrently for faster test execution. This is especially useful for I/O-bound tests (network calls, database operations, file I/O).
+
+```go
+trial.New(fn, cases).Parallel().SubTest(t)
+```
+
+**Important:** Test cases must be thread-safe when using `Parallel()`. Avoid:
+- Shared mutable state between cases
+- Tests that depend on execution order
+- Resources that can't handle concurrent access
+
+**Example with I/O-bound tests:**
+
+```go
+func TestAPIEndpoints(t *testing.T) {
+    fn := func(endpoint string) (int, error) {
+        resp, err := http.Get(baseURL + endpoint)
+        if err != nil {
+            return 0, err
+        }
+        defer resp.Body.Close()
+        return resp.StatusCode, nil
+    }
+    cases := trial.Cases[string, int]{
+        "health check":  {Input: "/health", Expected: 200},
+        "users list":    {Input: "/users", Expected: 200},
+        "not found":     {Input: "/invalid", Expected: 404},
+    }
+    // Run all HTTP calls concurrently
+    trial.New(fn, cases).Parallel().SubTest(t)
+}
+```
+
+**Chaining with other options:**
+
+```go
+trial.New(fn, cases).
+    Parallel().
+    Timeout(5 * time.Second).
+    Comparer(trial.Contains).
+    SubTest(t)
+```
+
+**Note:** `Parallel()` only works with `SubTest()`, not `Test()`.
 
 ---
 
