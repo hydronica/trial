@@ -48,6 +48,14 @@ func colorGreen(s string) string {
 	return s
 }
 
+// colorYellow wraps text in yellow ANSI color codes if colors are enabled.
+func colorYellow(s string) string {
+	if colorEnabled {
+		return "\033[33m" + s + "\033[0m"
+	}
+	return s
+}
+
 type (
 	// TestFunc a wrapper function used to setup the method being tested.
 	TestFunc func(in Input) (result interface{}, err error)
@@ -70,11 +78,12 @@ type Comparer interface {
 
 // Trial framework used to test different logical states
 type Trial[In any, Out any] struct {
-	cases    map[string]Case[In, Out]
-	testFn   testFunc[In, Out]
-	equalFn  CompareFunc
-	timeout  time.Duration
-	parallel bool
+	cases             map[string]Case[In, Out]
+	testFn            testFunc[In, Out]
+	equalFn           CompareFunc
+	timeout           time.Duration
+	parallel          bool
+	knownIssueReason  string
 }
 
 // Cases made during the trial
@@ -123,6 +132,14 @@ func (t *Trial[In, Out]) Comparer(fn CompareFunc) *Trial[In, Out] {
 // Note: Test cases must be thread-safe when using this option.
 func (t *Trial[In, Out]) Parallel() *Trial[In, Out] {
 	t.parallel = true
+	return t
+}
+
+// KnownIssue marks this trial run with a known-issue reason.
+// If a case fails, the reason is appended to improve visibility.
+// This does not change pass/fail behavior.
+func (t *Trial[In, Out]) KnownIssue(reason string) *Trial[In, Out] {
+	t.knownIssueReason = reason
 	return t
 }
 
@@ -219,6 +236,9 @@ func (t *Trial[In, Out]) testCase(msg string, test Case[In, Out]) result {
 		} else {
 			result.pass("PASS: %q", msg)
 		}
+	}
+	if !result.Success && t.knownIssueReason != "" {
+		result.Message += colorYellow(fmt.Sprintf(" (known issue: %s)", t.knownIssueReason))
 	}
 	return *result
 }

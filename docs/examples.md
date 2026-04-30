@@ -364,6 +364,26 @@ trial.New(fn, cases).
 
 ---
 
+## Known Issue Visibility
+
+Use `KnownIssue()` to annotate failures with a warning reason when a test is known to be flaky. This is visibility only: failures still fail.
+
+```go
+trial.New(fn, cases).
+    KnownIssue("tracked flaky behavior - TODO fix #123").
+    SubTest(t)
+```
+
+When a case fails, output includes a suffix like:
+
+```text
+FAIL: "case name" ... (known issue: tracked flaky behavior - TODO fix #123)
+```
+
+Passing cases are unchanged.
+
+---
+
 ## Complete Example
 
 Copy-paste-ready test file:

@@ -335,6 +335,29 @@ func TestParallel(t *testing.T) {
 	New(fn, cases).Parallel().SubTest(t)
 }
 
+func TestKnownIssue(t *testing.T) {
+
+	fn := func(in int) (int, error) {
+		return in * 2, nil
+	}
+	cases := map[string]Case[int, int]{
+		"mismatch": {Input: 2, Expected: 999},
+		"match":    {Input: 2, Expected: 4},
+	}
+	testRunner := New(fn, cases).KnownIssue("Issue #1234")
+
+	for testName, test := range cases {
+		result := testRunner.testCase(testName, test)
+		if result.Success && strings.Contains(result.Message, "Issue #1234") {
+			t.Logf("FAIL: Unexpecte Known issue %v", result.Message)
+			t.Fail()
+		} else if !result.Success && !strings.Contains(result.Message, "Issue #1234") {
+			t.Logf("FAIL: Expected Known Issue in %v", result.Message)
+			t.Fail()
+		}
+	}
+}
+
 func TestColorDiagnostics(t *testing.T) {
 	if colorEnabled {
 		t.Log("Color Enabled " + colorGreen("GREEN") + " " + colorRed("RED"))

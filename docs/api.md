@@ -43,6 +43,7 @@ type CompareFunc func(actual, expected interface{}) (equal bool, differences str
 | `.Comparer(fn)` | Set custom comparison function |
 | `.Timeout(d)` | Set max duration per case |
 | `.Parallel()` | Enable parallel execution for subtests (use with `SubTest()`) |
+| `.KnownIssue(reason)` | Add message for known flaky tests |
 
 ## Case Fields
 
