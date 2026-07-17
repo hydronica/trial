@@ -147,7 +147,7 @@ Customize the use of cmp.Equal with the following supported options:
   - `IgnoreAllUnexported` - ignore all unexported (private) variables within a struct. This is useful when dealing with a struct outside the project. 
   - `IgnoreFields(fields ...string)` - define a list of variables to exclude for the comparer, the field names are case sensitive and can be dot-delimited ("Field", "Parent.child")
   - `EquateEmpty`- **[default: Equal]** a nil map or slice is equal to an empty one (len is zero)
-  - `IgnoreTypes(values ...interface{})` - ignore all types of the values passed in. Ex: IgnoreTypes(int64(0), float32(0.0)) ignore int64 and float32
+  - `IgnoreTypes(values ...any)` - ignore all types of the values passed in. Ex: IgnoreTypes(int64(0), float32(0.0)) ignore int64 and float32
   - `ApproxTime(d time.Duration)` - approximates time values to the nearest duration. 
 
 ```go
@@ -173,6 +173,6 @@ Checks if the expected value is *contained* in the actual value. The symbol ⊇ 
 
 - **string ⊇ string** - is the expected string contained in the actual string (strings.Contains)
 - **string ⊇ []string** - are the expected substrings contained in the actual string
-- **[]interface{} ⊇ interface{}** - is the expected value found in the slice or array
-- **[]interface{} ⊇ []interface{}** - is the expected slice a subset of the actual slice. all values in expected exist and are contained in actual.
-- **map[key]interface{} ⊇ map[key]interface{}** - is the expected map a subset of the actual map. all keys in expected are in actual and all values under that key are contained in actual
+- **[]any ⊇ any** - is the expected value found in the slice or array
+- **[]any ⊇ []any** - is the expected slice a subset of the actual slice. all values in expected exist and are contained in actual.
+- **map[key]any ⊇ map[key]any** - is the expected map a subset of the actual map. all keys in expected are in actual and all values under that key are contained in actual

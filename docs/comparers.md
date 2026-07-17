@@ -7,6 +7,7 @@ Comparers determine how trial checks equality between actual and expected values
 - [Overview](#overview)
 - [Equal (Default)](#equal-default)
 - [EqualOpt](#equalopt)
+- [JSONEqual](#jsonequal)
 - [Contains](#contains)
 - [CmpFuncs](#cmpfuncs)
 - [Custom Comparers](#custom-comparers)
@@ -18,7 +19,7 @@ Comparers determine how trial checks equality between actual and expected values
 A comparer is a function with this signature:
 
 ```go
-type CompareFunc func(actual, expected interface{}) (equal bool, differences string)
+type CompareFunc func(actual, expected any) (equal bool, differences string)
 ```
 
 - `equal` - Returns `true` if values match
@@ -40,7 +41,7 @@ The default comparer. Wraps `cmp.Equal` from [google/go-cmp](https://github.com/
 - **EquateEmpty** - Treats `nil` and empty slices/maps as equal
 
 ```go
-func Equal(actual, expected interface{}) (bool, string)
+func Equal(actual, expected any) (bool, string)
 ```
 
 **When to use:** Most cases. Strict equality checking.
@@ -61,7 +62,7 @@ trial.New(fn, cases).Comparer(trial.Equal).Test(t)
 Customizable equality comparer. Build your own comparison logic by combining options.
 
 ```go
-func EqualOpt(optFns ...func(i interface{}) cmp.Option) func(actual, expected interface{}) (bool, string)
+func EqualOpt(optFns ...func(i any) cmp.Option) func(actual, expected any) (bool, string)
 ```
 
 ### Available Options
@@ -91,7 +92,7 @@ trial.EqualOpt(trial.IgnoreAllUnexported)
 Exclude specific fields from comparison by name.
 
 ```go
-func IgnoreFields(f ...string) func(interface{}) cmp.Option
+func IgnoreFields(f ...string) func(any) cmp.Option
 ```
 
 - Field names are **case-sensitive**
@@ -110,7 +111,7 @@ trial.EqualOpt(
 Ignore specific fields on a given struct type. Use this when ignoring fields in embedded structs where `IgnoreFields` cannot infer the correct type.
 
 ```go
-func IgnoreFieldsOf(structType interface{}, fields ...string) func(interface{}) cmp.Option
+func IgnoreFieldsOf(structType any, fields ...string) func(any) cmp.Option
 ```
 
 ```go
@@ -141,7 +142,7 @@ trial.New(fn, cases).Comparer(
 Ignore all values of specified types.
 
 ```go
-func IgnoreTypes(types ...interface{}) func(interface{}) cmp.Option
+func IgnoreTypes(types ...any) func(any) cmp.Option
 ```
 
 ```go
@@ -157,7 +158,7 @@ trial.EqualOpt(
 Consider time values equal if they differ by less than the specified duration.
 
 ```go
-func ApproxTime(d time.Duration) func(interface{}) cmp.Option
+func ApproxTime(d time.Duration) func(any) cmp.Option
 ```
 
 ```go
@@ -201,12 +202,68 @@ trial.New(fn, cases).Comparer(
 
 ---
 
+## JSONEqual
+
+Semantic JSON comparison. Normalizes both sides to JSON DOM shape before comparing with `cmp.Diff`. Ignores key ordering and whitespace differences.
+
+```go
+func JSONEqual(actual, expected any) (bool, string)
+```
+
+**When to use:** Comparing struct output to embedded JSON fixtures, API response bodies, or JSON strings that differ only in formatting.
+
+**Accepted shapes on either side:**
+
+| Input | Normalization |
+|-------|---------------|
+| `string` | `json.Unmarshal` (inline, embedded, or API body) |
+| `[]byte`, `json.RawMessage` | `json.Unmarshal` |
+| struct, map, slice, pointer | `json.Marshal` → `json.Unmarshal` |
+
+**Recommended fixture pattern** — load golden JSON with `//go:embed`, pass as `Expected`:
+
+```go
+//go:embed testdata/expected.json
+var expectedJSON string
+
+cases := trial.Cases[Input, string]{
+    "valid response": {Input: someInput, Expected: expectedJSON},
+}
+trial.New(fn, cases).Comparer(trial.JSONEqual).SubTest(t)
+```
+
+**Struct vs JSON string:**
+
+```go
+type Response struct {
+    Name  string `json:"name"`
+    Count int    `json:"count"`
+}
+
+cases := trial.Cases[Input, string]{
+    "matches golden": {
+        Input:    in,
+        Expected: `{"count":5,"name":"foo"}`, // key order differs from struct
+    },
+}
+// fn returns Response; JSONEqual compares semantically
+trial.New(fn, cases).Comparer(trial.JSONEqual).SubTest(t)
+```
+
+**Limitations:**
+
+- JSON numbers become `float64` after normalization (standard Go JSON behavior)
+- Unexported struct fields are not compared (JSON round-trip uses exported fields only)
+- Invalid JSON returns an error naming the side with parse detail (e.g. `actual: invalid JSON: invalid character 'n' ...`)
+
+---
+
 ## Contains
 
 Subset matching comparer. Checks if the expected value is **contained in** the actual value.
 
 ```go
-func Contains(x, y interface{}) (bool, string)
+func Contains(x, y any) (bool, string)
 ```
 
 ### Symbols
@@ -290,7 +347,7 @@ func TestContains(t *testing.T) {
 Compares two function values to determine if they point to the same function.
 
 ```go
-func CmpFuncs(x, y interface{}) (b bool, s string)
+func CmpFuncs(x, y any) (b bool, s string)
 ```
 
 **Note:** Due to Go's function comparison limitations, this compares function pointers, not function behavior.
@@ -321,13 +378,13 @@ Create your own comparer for specialized comparison logic.
 ### Signature
 
 ```go
-func MyComparer(actual, expected interface{}) (bool, string)
+func MyComparer(actual, expected any) (bool, string)
 ```
 
 ### Example: Fuzzy String Matching
 
 ```go
-func FuzzyMatch(actual, expected interface{}) (bool, string) {
+func FuzzyMatch(actual, expected any) (bool, string) {
     a, ok1 := actual.(string)
     e, ok2 := expected.(string)
     if !ok1 || !ok2 {
@@ -352,7 +409,7 @@ trial.New(fn, cases).Comparer(FuzzyMatch).Test(t)
 
 ```go
 func WithinTolerance(tolerance float64) trial.CompareFunc {
-    return func(actual, expected interface{}) (bool, string) {
+    return func(actual, expected any) (bool, string) {
         a, ok1 := actual.(float64)
         e, ok2 := expected.(float64)
         if !ok1 || !ok2 {
@@ -378,6 +435,7 @@ trial.New(fn, cases).Comparer(WithinTolerance(0.001)).Test(t)
 | Scenario | Recommended Comparer |
 |----------|---------------------|
 | Exact equality (default) | `Equal` |
+| JSON / struct semantic equality | `JSONEqual` |
 | Ignore specific fields | `EqualOpt(IgnoreFields(...))` |
 | Ignore embedded struct fields | `EqualOpt(IgnoreFieldsOf(EmbeddedType{}, ...))` |
 | Ignore private fields | `EqualOpt(IgnoreAllUnexported)` |

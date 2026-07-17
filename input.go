@@ -7,11 +7,11 @@ import (
 )
 
 // Input the input value given to the trial test function
-type Input struct { // TODO: try type Input interface{}
+type Input struct { // TODO: try making Input an interface type
 	value reflect.Value
 }
 
-func newInput(i interface{}) Input {
+func newInput(i any) Input {
 	return Input{value: reflect.ValueOf(i)}
 }
 
@@ -67,7 +67,7 @@ func (in Input) Uint() uint {
 }
 
 // Interface returns the current value of input
-func (in Input) Interface() interface{} {
+func (in Input) Interface() any {
 	//TODO: check for nil
 	if in.value.Kind() == reflect.Invalid {
 		return nil
@@ -102,7 +102,7 @@ func (in Input) Slice(i int) Input {
 }
 
 // Map returns the value for the provided key, panics on non map value
-func (in Input) Map(key interface{}) Input {
+func (in Input) Map(key any) Input {
 	// use reflection to access any map type map[string]string, etc
 	return Input{value: in.value.MapIndex(reflect.ValueOf(key))}
 }

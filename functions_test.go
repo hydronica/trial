@@ -105,8 +105,8 @@ func TestEqualFn(t *testing.T) {
 		},
 		"interface slice with private methods": {
 			Input: Args(
-				[]interface{}{test{Public: 1, private: "a"}, parent{}},
-				[]interface{}{test{Public: 1, private: "a"}, parent{}},
+				[]any{test{Public: 1, private: "a"}, parent{}},
+				[]any{test{Public: 1, private: "a"}, parent{}},
 			),
 			Expected: true,
 		},
@@ -118,6 +118,94 @@ func TestEqualFn(t *testing.T) {
 		},
 	}
 	New(fn, cases).Test(t)
+}
+
+func TestJSONEqual(t *testing.T) {
+	type response struct {
+		Name  string `json:"name"`
+		Count int    `json:"count"`
+	}
+	type input struct {
+		actual   any
+		expected any
+	}
+	fn := func(in input) (bool, error) {
+		eq, diff := JSONEqual(in.actual, in.expected)
+		if !eq {
+			return false, errors.New(diff)
+		}
+		return eq, nil
+	}
+	const embeddedFixture = `{
+		"name": "foo",
+		"count": 5
+	}`
+	cases := Cases[input, bool]{
+		"key order ignored": {
+			Input: input{
+				actual:   `{"b":2,"a":1}`,
+				expected: `{"a":1,"b":2}`,
+			},
+			Expected: true,
+		},
+		"whitespace ignored": {
+			Input: input{
+				actual:   `{"name":"foo","count":5}`,
+				expected: "{\n\t\"name\": \"foo\",\n\t\"count\": 5\n}",
+			},
+			Expected: true,
+		},
+		"struct vs json string": {
+			Input: input{
+				actual:   response{Name: "foo", Count: 5},
+				expected: `{"count":5,"name":"foo"}`,
+			},
+			Expected: true,
+		},
+		"embedded fixture string": {
+			Input: input{
+				actual:   response{Name: "foo", Count: 5},
+				expected: embeddedFixture,
+			},
+			Expected: true,
+		},
+		"semantic mismatch": {
+			Input: input{
+				actual:   response{Name: "foo", Count: 5},
+				expected: `{"name":"foo","count":9}`,
+			},
+			ShouldErr: true,
+		},
+		"invalid json actual": {
+			Input: input{
+				actual:   `{not json}`,
+				expected: `{}`,
+			},
+			ExpectedErr: errors.New("actual: invalid JSON: invalid character 'n'"),
+		},
+		"invalid json expected": {
+			Input: input{
+				actual:   `{}`,
+				expected: `{not json}`,
+			},
+			ExpectedErr: errors.New("expected: invalid JSON: invalid character 'n'"),
+		},
+		"number normalization": {
+			Input: input{
+				actual:   response{Name: "x", Count: 1},
+				expected: `{"name":"x","count":1}`,
+			},
+			Expected: true,
+		},
+		"nil both sides": {
+			Input: input{
+				actual:   nil,
+				expected: nil,
+			},
+			Expected: true,
+		},
+	}
+	New(fn, cases).SubTest(t)
 }
 
 func TestComparerOptions(t *testing.T) {
@@ -134,15 +222,15 @@ func TestComparerOptions(t *testing.T) {
 		Child   child
 		kid     child
 
-		Map   map[string]interface{}
+		Map   map[string]any
 		Slice []string
 	}
 	type Alias int
 
 	type input struct {
 		fn CompareFunc
-		v1 interface{}
-		v2 interface{}
+		v1 any
+		v2 any
 	}
 	fn := func(in input) (bool, error) {
 
@@ -233,7 +321,7 @@ func TestComparerOptions(t *testing.T) {
 		"Equate Empty": {
 			Input: input{
 				fn: EqualOpt(IgnoreAllUnexported, EquateEmpty),
-				v1: tStruct{Map: map[string]interface{}{}, Slice: []string{}},
+				v1: tStruct{Map: map[string]any{}, Slice: []string{}},
 				v2: tStruct{Map: nil, Slice: nil},
 			},
 			Expected: true,
@@ -388,12 +476,12 @@ func TestContainsFn(t *testing.T) {
 			Expected:  false,
 			ShouldErr: true,
 		},
-		"[]interface{}": {
-			Input:    Args([]interface{}{1, 2, 3, "abc", 4.5}, []interface{}{2, "abc"}),
+		"[]any": {
+			Input:    Args([]any{1, 2, 3, "abc", 4.5}, []any{2, "abc"}),
 			Expected: true,
 		},
-		"[]interface{} with int slice": {
-			Input:    Args([]interface{}{1, 2, 3, "abc", 4.5}, []int{2, 1}),
+		"[]any with int slice": {
+			Input:    Args([]any{1, 2, 3, "abc", 4.5}, []int{2, 1}),
 			Expected: true,
 		},
 		"expected is slice subset of actual": {
@@ -408,14 +496,14 @@ func TestContainsFn(t *testing.T) {
 			Input:    Args([]string{"abcdefghijklmnop", "qrstuvwxyz"}, []string{"abc", "def"}),
 			Expected: true,
 		},
-		"map[string]interface{}": {
+		"map[string]any": {
 			Input: Args(
-				map[string]interface{}{
+				map[string]any{
 					"int":     10,
 					"float64": 1.1,
 					"name":    "hello",
 				},
-				map[string]interface{}{"int": 10},
+				map[string]any{"int": 10},
 			),
 			Expected: true,
 		},

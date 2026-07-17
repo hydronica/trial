@@ -19,7 +19,7 @@ Trial provides helper functions to simplify test setup.
 Converts multiple arguments into an `Input` value.
 
 ```go
-func Args(args ...interface{}) Input
+func Args(args ...any) Input
 ```
 
 **Example:**
@@ -47,8 +47,8 @@ cases := trial.Cases[trial.Input, int]{
 | `Float64()` | `float64` | Get as float64 (parses strings) |
 | `Bool()` | `bool` | Get as bool (parses strings) |
 | `Slice(i int)` | `Input` | Get element at index |
-| `Map(key interface{})` | `Input` | Get value for key |
-| `Interface()` | `interface{}` | Get raw value |
+| `Map(key any)` | `Input` | Get value for key |
+| `Interface()` | `any` | Get raw value |
 
 ---
 

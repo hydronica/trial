@@ -6,7 +6,7 @@ import (
 
 // Args converts any number of parameters to an interface.
 // generally used with Case's Input for multiple params
-func Args(args ...interface{}) Input {
+func Args(args ...any) Input {
 	if len(args) == 1 {
 		return newInput(args[0])
 	}

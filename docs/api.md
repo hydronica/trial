@@ -24,7 +24,7 @@ type Case[In any, Out any] struct {
 type Input struct { /* ... */ }
 
 // Custom comparer signature
-type CompareFunc func(actual, expected interface{}) (equal bool, differences string)
+type CompareFunc func(actual, expected any) (equal bool, differences string)
 ```
 
 ## Core Functions
@@ -71,7 +71,7 @@ For use with `trial.Args()`. See [helpers.md](helpers.md#input-helpers) for deta
 | `Bool()` | `bool` | Get as bool |
 | `Slice(i)` | `Input` | Get element at index |
 | `Map(key)` | `Input` | Get value for key |
-| `Interface()` | `interface{}` | Get raw value |
+| `Interface()` | `any` | Get raw value |
 
 ## Comparers
 
@@ -80,6 +80,7 @@ See [comparers.md](comparers.md) for detailed documentation.
 | Comparer | Description |
 |----------|-------------|
 | `Equal` | Default. Strict equality via `cmp.Equal` |
+| `JSONEqual` | Semantic JSON comparison (key order, whitespace) |
 | `Contains` | Subset/substring matching |
 | `EqualOpt(opts...)` | Customizable equality |
 | `CmpFuncs` | Compare function pointers |
