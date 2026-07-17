@@ -36,10 +36,10 @@ Go testing framework to make tests easier to create, maintain and debug.
     - each test is self isolated so a panic won't stop other cases from running 
     - check for expected panic cases with `ShouldPanic`
   - Test error cases 
-    - Check that a function returns an error: `ShouldErr`
-    - Check error message with `trial.Error()` (exact, `.Contains()`, or `.Regex()`)
+    - Check that a function returns an error: `ShouldErr` or `ExpectedErr: trial.Error()`
+    - Match error message: `trial.Error().Exact()`, `.Contains()`, or `.Regex()`
     - Legacy substring match: `ExpectedErr: errors.New("fragment")`
-    - Check error type: `ExpectedErr: trial.ErrType(err)` (optionally with `.Contains()` or `.Regex()`)
+    - Check error type: `ExpectedErr: trial.Error().IsType(err)`
   - Fail tests that take too long to complete
     - `trial.New(fn,cases).Timeout(time.Second)`
   - Run subtests in parallel for faster execution
@@ -90,8 +90,9 @@ Each case field is described below:
   - This is compared with the result from the TestFunc
 - **ShouldErr** *bool* - indicates the function should return an error
 - **ExpectedErr** *error* - verifies the function returns an expected error
-  - `trial.Error("msg")` — exact message match; `.Contains()` for substring; `.Regex()` for pattern
-  - `trial.ErrType(err)` — type match; `.Contains()` / `.Regex()` add message checks
+  - `trial.Error()` — any error
+  - `trial.Error().Exact("msg")` — exact message; `.Contains("msg")` for substring; `.Regex(pat)` for pattern
+  - `trial.Error().IsType(err)` — type match; chain `.Contains()` / `.Regex()` for message checks
   - `errors.New("fragment")` — legacy substring match via `strings.Contains`
   - also implies that the method should error so setting ShouldErr to true is not required
 - **ShouldPanic** *bool* - indicates the method should panic

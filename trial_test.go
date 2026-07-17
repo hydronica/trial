@@ -132,7 +132,7 @@ func TestTrial_TestCase(t *testing.T) {
 				return nil, testErr{}
 			}, nil),
 			Case: Case[Input, any]{
-				ExpectedErr: ErrType(testErr{}),
+				ExpectedErr: Error().IsType(testErr{}),
 			},
 			expResult: result{Success: true, Message: `PASS: "expected error of type testErr"`},
 		},
@@ -141,7 +141,7 @@ func TestTrial_TestCase(t *testing.T) {
 				return nil, nil
 			}, nil),
 			Case: Case[Input, any]{
-				ExpectedErr: ErrType(testErr{}),
+				ExpectedErr: Error().IsType(testErr{}),
 			},
 			expResult: result{Success: false, Message: `FAIL: "error type testErr with nil response"`},
 		},
@@ -150,7 +150,7 @@ func TestTrial_TestCase(t *testing.T) {
 				return nil, errors.New("some error")
 			}, nil),
 			Case: Case[Input, any]{
-				ExpectedErr: ErrType(testErr{}),
+				ExpectedErr: Error().IsType(testErr{}),
 			},
 			expResult: result{Success: false, Message: `FAIL: "error type testErr with mismatch response"`},
 		},

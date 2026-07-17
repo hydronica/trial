@@ -21,39 +21,43 @@ type expectErr struct {
 	mode matchMode
 }
 
-// Error returns an expected error matcher that compares the full error message
-// by default. Use Contains or Regex to change the comparison mode.
-func Error(text string) expectErr {
-	return expectErr{text: text, mode: matchExact}
+// Error returns an expected error matcher. Use builder methods to constrain the
+// match: IsType, Exact, Contains, or Regex. With no methods, any error matches.
+func Error() expectErr {
+	return expectErr{}
 }
 
-// ErrType can be used with ExpectedErr to check that the expected err is of a
-// certain type. Use Contains or Regex to also match the error message.
-func ErrType(err error) expectErr {
-	return expectErr{err: err}
+// IsType requires the actual error to be the same type as err.
+func (e expectErr) IsType(err error) expectErr {
+	e.err = err
+	return e
 }
 
-// Contains sets substring matching on the error message. When called on
-// Error(text), the text argument is reused. When called on ErrType, a substring
-// argument is required.
-func (e expectErr) Contains(substr ...string) error {
-	if len(substr) > 0 {
-		e.text = substr[0]
-	}
+// Exact requires the error message to match exactly.
+func (e expectErr) Exact(msg string) error {
+	e.text = msg
+	e.mode = matchExact
+	return e
+}
+
+// Contains requires the error message to contain substr.
+func (e expectErr) Contains(substr string) error {
+	e.text = substr
 	e.mode = matchContains
 	return e
 }
 
-// Regex sets regex matching on the error message. When called on Error(text),
-// the text argument is reused as the pattern. When called on ErrType, a pattern
-// argument is required. Invalid patterns fail at compare time with a clear
-// error message.
-func (e expectErr) Regex(pattern ...string) error {
-	if len(pattern) > 0 {
-		e.text = pattern[0]
-	}
+// Regex requires the error message to match pattern. Invalid patterns fail at
+// compare time with a clear error message.
+func (e expectErr) Regex(pattern string) error {
+	e.text = pattern
 	e.mode = matchRegex
 	return e
+}
+
+// ErrType is deprecated. Use Error().IsType(err) instead.
+func ErrType(err error) error {
+	return Error().IsType(err)
 }
 
 func (e expectErr) modeWord() string {
@@ -70,7 +74,7 @@ func (e expectErr) modeWord() string {
 func (e expectErr) Error() string {
 	if e.text == "" {
 		if e.err == nil {
-			return ""
+			return "any error"
 		}
 		if msg := e.err.Error(); msg != "" {
 			return msg

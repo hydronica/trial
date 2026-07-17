@@ -19,45 +19,59 @@ func TestError_matching(t *testing.T) {
 		wantPass  bool
 		wantInMsg string
 	}{
+		"any error pass": {
+			fn:        errFn("anything"),
+			expected:  Error(),
+			wantPass:  true,
+			wantInMsg: `PASS: "any error pass"`,
+		},
+		"any error fail when no error": {
+			fn: func(Input) (any, error) {
+				return nil, nil
+			},
+			expected:  Error(),
+			wantPass:  false,
+			wantInMsg: `should error`,
+		},
 		"exact pass": {
 			fn:        errFn("test error"),
-			expected:  Error("test error"),
+			expected:  Error().Exact("test error"),
 			wantPass:  true,
 			wantInMsg: `PASS: "exact pass"`,
 		},
 		"exact fail extra text": {
 			fn:        errFn("test error: details"),
-			expected:  Error("test error"),
+			expected:  Error().Exact("test error"),
 			wantPass:  false,
 			wantInMsg: `does not match exactly`,
 		},
-		"contains pass from Error": {
+		"contains pass": {
 			fn:        errFn("request timeout after 5s"),
-			expected:  Error("timeout").Contains(),
+			expected:  Error().Contains("timeout"),
 			wantPass:  true,
-			wantInMsg: `PASS: "contains pass from Error"`,
+			wantInMsg: `PASS: "contains pass"`,
 		},
 		"contains fail": {
 			fn:        errFn("not found"),
-			expected:  Error("timeout").Contains(),
+			expected:  Error().Contains("timeout"),
 			wantPass:  false,
 			wantInMsg: `does not contain`,
 		},
-		"regex pass from Error": {
+		"regex pass": {
 			fn:        errFn("invalid xyz format"),
-			expected:  Error(`invalid.*format`).Regex(),
+			expected:  Error().Regex(`invalid.*format`),
 			wantPass:  true,
-			wantInMsg: `PASS: "regex pass from Error"`,
+			wantInMsg: `PASS: "regex pass"`,
 		},
 		"regex fail": {
 			fn:        errFn("bad format"),
-			expected:  Error(`invalid.*format`).Regex(),
+			expected:  Error().Regex(`invalid.*format`),
 			wantPass:  false,
 			wantInMsg: `does not match pattern`,
 		},
 		"invalid regex pattern": {
 			fn:        errFn("any error"),
-			expected:  Error(`[invalid`).Regex(),
+			expected:  Error().Regex(`[invalid`),
 			wantPass:  false,
 			wantInMsg: `invalid regex pattern`,
 		},
@@ -87,7 +101,7 @@ type typedErr struct{ msg string }
 
 func (e typedErr) Error() string { return e.msg }
 
-func TestErrType_matching(t *testing.T) {
+func TestError_IsType_matching(t *testing.T) {
 	cases := map[string]struct {
 		fn        func(Input) (any, error)
 		expected  error
@@ -98,7 +112,7 @@ func TestErrType_matching(t *testing.T) {
 			fn: func(Input) (any, error) {
 				return nil, typedErr{msg: "anything"}
 			},
-			expected:  ErrType(typedErr{}),
+			expected:  Error().IsType(typedErr{}),
 			wantPass:  true,
 			wantInMsg: `PASS: "type only pass"`,
 		},
@@ -106,7 +120,7 @@ func TestErrType_matching(t *testing.T) {
 			fn: func(Input) (any, error) {
 				return nil, errors.New("plain")
 			},
-			expected:  ErrType(typedErr{}),
+			expected:  Error().IsType(typedErr{}),
 			wantPass:  false,
 			wantInMsg: `is not trial.typedErr`,
 		},
@@ -114,7 +128,7 @@ func TestErrType_matching(t *testing.T) {
 			fn: func(Input) (any, error) {
 				return nil, typedErr{msg: "validation failed: field required"}
 			},
-			expected:  ErrType(typedErr{}).Contains("field required"),
+			expected:  Error().IsType(typedErr{}).Contains("field required"),
 			wantPass:  true,
 			wantInMsg: `PASS: "type and contains pass"`,
 		},
@@ -122,7 +136,7 @@ func TestErrType_matching(t *testing.T) {
 			fn: func(Input) (any, error) {
 				return nil, typedErr{msg: "validation failed"}
 			},
-			expected:  ErrType(typedErr{}).Contains("field required"),
+			expected:  Error().IsType(typedErr{}).Contains("field required"),
 			wantPass:  false,
 			wantInMsg: `does not contain`,
 		},
@@ -130,7 +144,7 @@ func TestErrType_matching(t *testing.T) {
 			fn: func(Input) (any, error) {
 				return nil, errors.New("field required")
 			},
-			expected:  ErrType(typedErr{}).Contains("field required"),
+			expected:  Error().IsType(typedErr{}).Contains("field required"),
 			wantPass:  false,
 			wantInMsg: `is not trial.typedErr`,
 		},
@@ -138,7 +152,7 @@ func TestErrType_matching(t *testing.T) {
 			fn: func(Input) (any, error) {
 				return nil, typedErr{msg: "field abc required"}
 			},
-			expected:  ErrType(typedErr{}).Regex(`field .+ required`),
+			expected:  Error().IsType(typedErr{}).Regex(`field .+ required`),
 			wantPass:  true,
 			wantInMsg: `PASS: "type and regex pass"`,
 		},
@@ -146,7 +160,7 @@ func TestErrType_matching(t *testing.T) {
 			fn: func(Input) (any, error) {
 				return nil, typedErr{msg: "field missing"}
 			},
-			expected:  ErrType(typedErr{}).Regex(`field .+ required`),
+			expected:  Error().IsType(typedErr{}).Regex(`field .+ required`),
 			wantPass:  false,
 			wantInMsg: `does not match pattern`,
 		},
@@ -154,9 +168,17 @@ func TestErrType_matching(t *testing.T) {
 			fn: func(Input) (any, error) {
 				return nil, typedErr{msg: "field required"}
 			},
-			expected:  ErrType(typedErr{}).Regex(`[invalid`),
+			expected:  Error().IsType(typedErr{}).Regex(`[invalid`),
 			wantPass:  false,
 			wantInMsg: `invalid regex pattern`,
+		},
+		"deprecated ErrType still works": {
+			fn: func(Input) (any, error) {
+				return nil, typedErr{msg: "anything"}
+			},
+			expected:  ErrType(typedErr{}),
+			wantPass:  true,
+			wantInMsg: `PASS: "deprecated ErrType still works"`,
 		},
 	}
 
@@ -181,33 +203,38 @@ func TestExpectErr_Error_string(t *testing.T) {
 		want string
 	}{
 		{
+			name: "any error",
+			err:  Error(),
+			want: "any error",
+		},
+		{
 			name: "exact",
-			err:  Error("timeout"),
+			err:  Error().Exact("timeout"),
 			want: `error exactly "timeout"`,
 		},
 		{
 			name: "contains",
-			err:  Error("timeout").Contains(),
+			err:  Error().Contains("timeout"),
 			want: `error containing "timeout"`,
 		},
 		{
 			name: "regex",
-			err:  Error(`time.*out`).Regex(),
+			err:  Error().Regex(`time.*out`),
 			want: `error matching pattern "time.*out"`,
 		},
 		{
-			name: "type only",
-			err:  ErrType(typedErr{}),
+			name: "is type only",
+			err:  Error().IsType(typedErr{}),
 			want: "error of type trial.typedErr",
 		},
 		{
-			name: "type with error message",
-			err:  ErrType(errors.New("not found")),
+			name: "is type with error message",
+			err:  Error().IsType(errors.New("not found")),
 			want: "not found",
 		},
 		{
-			name: "type contains",
-			err:  ErrType(typedErr{}).Contains("required"),
+			name: "is type contains",
+			err:  Error().IsType(typedErr{}).Contains("required"),
 			want: `error of type trial.typedErr containing "required"`,
 		},
 	}
