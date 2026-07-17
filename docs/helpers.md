@@ -123,12 +123,29 @@ Use `Hour()` instead of `TimeHour()`, use `Day()` instead of `TimeDay()`.
 
 ## Error Helpers
 
-### ErrType
+### Error
 
-Wraps an error for **type-based comparison**. When used with `ExpectedErr`, trial checks that the returned error is the same type (not message).
+Creates an expected error matcher. By default, compares the **full** error message exactly. Use `.Contains()` for substring matching or `.Regex()` for pattern matching.
 
 ```go
-func ErrType(err error) error
+func Error(text string) /* error matcher */
+```
+
+**Examples:**
+```go
+ExpectedErr: trial.Error("invalid input")                    // exact match
+ExpectedErr: trial.Error("timeout").Contains()              // substring
+ExpectedErr: trial.Error(`invalid.*format`).Regex()         // regex
+```
+
+Invalid regex patterns fail at compare time with a clear failure message (not at case initialization).
+
+### ErrType
+
+Wraps an error for **type-based comparison**. When used with `ExpectedErr`, trial checks that the returned error is the same type (not message). Use `.Contains()` or `.Regex()` to also match the message.
+
+```go
+func ErrType(err error) /* error matcher */
 ```
 
 **Example:**
@@ -141,8 +158,14 @@ cases := trial.Cases[string, string]{
         Input:       "",
         ExpectedErr: trial.ErrType(ValidationError{}),
     },
+    "validation with message": {
+        Input:       "",
+        ExpectedErr: trial.ErrType(ValidationError{}).Contains("field required"),
+    },
 }
 ```
+
+**Legacy:** `errors.New("fragment")` with `ExpectedErr` still uses substring matching via `strings.Contains`.
 
 ---
 

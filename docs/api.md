@@ -16,7 +16,7 @@ type Case[In any, Out any] struct {
     Input       In
     Expected    Out
     ShouldErr   bool   // expect any error
-    ExpectedErr error  // expect error containing this string (or use ErrType for type check)
+    ExpectedErr error  // expect error (see Error, ErrType, or errors.New)
     ShouldPanic bool   // expect panic
 }
 
@@ -32,7 +32,8 @@ type CompareFunc func(actual, expected interface{}) (equal bool, differences str
 | Function | Description |
 |----------|-------------|
 | `New(fn, cases)` | Create Trial instance |
-| `ErrType(err)` | Wrap error for type-based comparison |
+| `Error(text)` | Expected error matcher (exact by default; use `.Contains()` or `.Regex()`) |
+| `ErrType(err)` | Expected error type matcher (use `.Contains()` or `.Regex()` for message) |
 
 ## Trial Methods
 
@@ -51,12 +52,14 @@ type CompareFunc func(actual, expected interface{}) (equal bool, differences str
 | `Input` | `In` | Value passed to test function |
 | `Expected` | `Out` | Expected return value |
 | `ShouldErr` | `bool` | Expect any error |
-| `ExpectedErr` | `error` | Expect error containing string (uses `strings.Contains`) |
+| `ExpectedErr` | `error` | Expect specific error (see matching modes below) |
 | `ShouldPanic` | `bool` | Expect panic |
 
 **Notes:**
 - `ExpectedErr` implies `ShouldErr`, no need to set both
-- Use `ErrType(MyError{})` with `ExpectedErr` to check error types
+- `trial.Error(text)` — exact message match; `.Contains()` for substring; `.Regex()` for pattern
+- `trial.ErrType(MyError{})` — type match; `.Contains()` / `.Regex()` add message checks
+- `errors.New("fragment")` — legacy substring match via `strings.Contains`
 
 ## Input Methods
 

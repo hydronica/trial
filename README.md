@@ -37,8 +37,9 @@ Go testing framework to make tests easier to create, maintain and debug.
     - check for expected panic cases with `ShouldPanic`
   - Test error cases 
     - Check that a function returns an error: `ShouldErr`
-    - Check that an error string contains expected string: `ExpectedErr`
-    - Check that an error is of expected type: `ExpectedErr: ErrType(err)`
+    - Check error message with `trial.Error()` (exact, `.Contains()`, or `.Regex()`)
+    - Legacy substring match: `ExpectedErr: errors.New("fragment")`
+    - Check error type: `ExpectedErr: trial.ErrType(err)` (optionally with `.Contains()` or `.Regex()`)
   - Fail tests that take too long to complete
     - `trial.New(fn,cases).Timeout(time.Second)`
   - Run subtests in parallel for faster execution
@@ -88,10 +89,11 @@ Each case field is described below:
 - **Expected** *generic* - the expected output of the method being tested.
   - This is compared with the result from the TestFunc
 - **ShouldErr** *bool* - indicates the function should return an error
-- **ExpectedErr** *error* - verifies the function error string matches the result
-  - uses strings.Contains to check
+- **ExpectedErr** *error* - verifies the function returns an expected error
+  - `trial.Error("msg")` — exact message match; `.Contains()` for substring; `.Regex()` for pattern
+  - `trial.ErrType(err)` — type match; `.Contains()` / `.Regex()` add message checks
+  - `errors.New("fragment")` — legacy substring match via `strings.Contains`
   - also implies that the method should error so setting ShouldErr to true is not required
-  - use *ErrType* to test that the error is the same type as expected. 
 - **ShouldPanic** *bool* - indicates the method should panic
 
 ### Trial Setup

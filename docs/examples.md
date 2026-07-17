@@ -120,13 +120,34 @@ cases := trial.Cases[[]int, int]{
 
 ### ExpectedErr - Expect Specific Error Message
 
-Uses `strings.Contains` to check the error message:
+Uses `strings.Contains` to check the error message (legacy):
 
 ```go
 cases := trial.Cases[string, output]{
     "invalid character": {
         Input:       `{"Value", "abc"}`,
         ExpectedErr: errors.New("invalid character"),
+    },
+}
+```
+
+### Error - Flexible Error Message Matching
+
+Use `trial.Error()` for exact, substring, or regex matching:
+
+```go
+cases := trial.Cases[string, int]{
+    "exact message": {
+        Input:       "bad",
+        ExpectedErr: trial.Error("invalid input"),
+    },
+    "substring match": {
+        Input:       "slow",
+        ExpectedErr: trial.Error("timeout").Contains(),
+    },
+    "regex match": {
+        Input:       "bad",
+        ExpectedErr: trial.Error(`invalid.*format`).Regex(),
     },
 }
 ```
@@ -146,6 +167,14 @@ cases := trial.Cases[string, string]{
     "validation error": {
         Input:       "",
         ExpectedErr: trial.ErrType(ValidationError{}),
+    },
+    "validation with message": {
+        Input:       "",
+        ExpectedErr: trial.ErrType(ValidationError{}).Contains("field required"),
+    },
+    "validation with regex": {
+        Input:       "",
+        ExpectedErr: trial.ErrType(ValidationError{}).Regex(`field .+ required`),
     },
 }
 ```

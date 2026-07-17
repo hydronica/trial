@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"os"
-	"reflect"
 	"runtime/debug"
 	"strings"
 	"testing"
@@ -211,8 +210,13 @@ func (t *Trial[In, Out]) testCase(msg string, test Case[In, Out]) result {
 		result.fail("FAIL: %q should error", msg)
 	} else if !test.ShouldErr && result.err != nil && test.ExpectedErr == nil {
 		result.fail("FAIL: %q unexpected error '%s'", msg, result.err.Error())
-	} else if test.ExpectedErr != nil && !isExpectedError(result.err, test.ExpectedErr) {
-		result.fail("FAIL: %q error %q does not match expected %q", msg, result.err, test.ExpectedErr)
+	} else if test.ExpectedErr != nil {
+		matched, matchFail := isExpectedError(result.err, test.ExpectedErr)
+		if matchFail != "" {
+			result.fail("FAIL: %q %s", msg, matchFail)
+		} else if !matched {
+			result.fail("FAIL: %q error %q does not match expected %q", msg, result.err, test.ExpectedErr)
+		}
 	} else if !test.ShouldErr && test.ExpectedErr == nil {
 		if equal, diff := t.equalFn(result.value, test.Expected); !equal {
 			result.fail("FAIL: %q \n%s", msg, diff)
@@ -238,27 +242,6 @@ func cleanStack() (s string) {
 		s += ln + "\n"
 	}
 	return s
-}
-
-func isExpectedError(actual, expected error) bool {
-	if err, ok := expected.(errCheck); ok {
-		return reflect.TypeOf(actual) == reflect.TypeOf(err.err)
-	}
-	return strings.Contains(actual.Error(), expected.Error())
-}
-
-type errCheck struct {
-	err error
-}
-
-func (e errCheck) Error() string {
-	return e.err.Error()
-}
-
-// ErrType can be used with ExpectedErr to check
-// that the expected err is of a certain type
-func ErrType(err error) error {
-	return errCheck{err}
 }
 
 type result struct {
