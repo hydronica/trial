@@ -182,14 +182,21 @@ func TestJSONEqual(t *testing.T) {
 				actual:   `{not json}`,
 				expected: `{}`,
 			},
-			ExpectedErr: errors.New("actual: invalid JSON: invalid character 'n'"),
+			ExpectedErr: errors.New("actual: cannot unmarshal JSON: invalid character 'n'"),
 		},
 		"invalid json expected": {
 			Input: input{
 				actual:   `{}`,
 				expected: `{not json}`,
 			},
-			ExpectedErr: errors.New("expected: invalid JSON: invalid character 'n'"),
+			ExpectedErr: errors.New("expected: cannot unmarshal JSON: invalid character 'n'"),
+		},
+		"cannot marshal unsupported type": {
+			Input: input{
+				actual:   make(chan int),
+				expected: `{}`,
+			},
+			ExpectedErr: errors.New("actual: cannot marshal value to JSON:"),
 		},
 		"number normalization": {
 			Input: input{

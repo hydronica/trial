@@ -3,6 +3,7 @@ package trial
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"reflect"
 	"sort"
@@ -220,11 +221,11 @@ var JSONContains CompareFunc = JSONOpt(JSONSubset())
 func compareJSON(actual, expected any, cfg jsonCompareConfig) (bool, string) {
 	actualNorm, err := normalizeToJSON(actual, cfg)
 	if err != nil {
-		return false, fmt.Sprintf("actual: invalid JSON: %v", err)
+		return false, formatJSONNormalizeError("actual", err)
 	}
 	expectedNorm, err := normalizeToJSON(expected, cfg)
 	if err != nil {
-		return false, fmt.Sprintf("expected: invalid JSON: %v", err)
+		return false, formatJSONNormalizeError("expected", err)
 	}
 	if len(cfg.ignorePaths) > 0 {
 		actualNorm = stripJSONPaths(actualNorm, cfg.ignorePaths)
@@ -243,18 +244,67 @@ func normalizeToJSON(v any, cfg jsonCompareConfig) (any, error) {
 	}
 	switch x := v.(type) {
 	case string:
-		return unmarshalJSON([]byte(x), cfg.useNumber)
+		out, err := unmarshalJSON([]byte(x), cfg.useNumber)
+		if err != nil {
+			return nil, &jsonNormalizeError{stage: jsonNormalizeUnmarshal, err: err}
+		}
+		return out, nil
 	case []byte:
-		return unmarshalJSON(x, cfg.useNumber)
+		out, err := unmarshalJSON(x, cfg.useNumber)
+		if err != nil {
+			return nil, &jsonNormalizeError{stage: jsonNormalizeUnmarshal, err: err}
+		}
+		return out, nil
 	case json.RawMessage:
-		return unmarshalJSON(x, cfg.useNumber)
+		out, err := unmarshalJSON(x, cfg.useNumber)
+		if err != nil {
+			return nil, &jsonNormalizeError{stage: jsonNormalizeUnmarshal, err: err}
+		}
+		return out, nil
 	default:
 		data, err := json.Marshal(v)
 		if err != nil {
-			return nil, err
+			return nil, &jsonNormalizeError{stage: jsonNormalizeMarshal, err: err}
 		}
-		return unmarshalJSON(data, cfg.useNumber)
+		out, err := unmarshalJSON(data, cfg.useNumber)
+		if err != nil {
+			return nil, &jsonNormalizeError{stage: jsonNormalizeUnmarshal, err: err}
+		}
+		return out, nil
 	}
+}
+
+type jsonNormalizeStage int
+
+const (
+	jsonNormalizeMarshal jsonNormalizeStage = iota
+	jsonNormalizeUnmarshal
+)
+
+type jsonNormalizeError struct {
+	stage jsonNormalizeStage
+	err   error
+}
+
+func (e *jsonNormalizeError) Error() string {
+	return e.err.Error()
+}
+
+func (e *jsonNormalizeError) Unwrap() error {
+	return e.err
+}
+
+func formatJSONNormalizeError(side string, err error) string {
+	var norm *jsonNormalizeError
+	if errors.As(err, &norm) {
+		switch norm.stage {
+		case jsonNormalizeMarshal:
+			return fmt.Sprintf("%s: cannot marshal value to JSON: %v", side, norm.err)
+		case jsonNormalizeUnmarshal:
+			return fmt.Sprintf("%s: cannot unmarshal JSON: %v", side, norm.err)
+		}
+	}
+	return fmt.Sprintf("%s: %v", side, err)
 }
 
 func unmarshalJSON(data []byte, useNumber bool) (any, error) {

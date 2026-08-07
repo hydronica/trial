@@ -255,7 +255,7 @@ trial.New(fn, cases).Comparer(trial.JSONEqual).SubTest(t)
 
 - JSON numbers become `float64` after normalization (standard Go JSON behavior)
 - Unexported struct fields are not compared (JSON round-trip uses exported fields only)
-- Invalid JSON returns an error naming the side with parse detail (e.g. `actual: invalid JSON: invalid character 'n' ...`)
+- Invalid JSON text returns an unmarshal error naming the side (e.g. `actual: cannot unmarshal JSON: invalid character 'n' ...`); values that cannot be encoded return a marshal error (e.g. `actual: cannot marshal value to JSON: ...`)
 
 For subset matching, ignoring dynamic JSON fields, or exact large integers, see [JSONOpt](#jsonopt).
 
