@@ -209,13 +209,13 @@ func (t *Trial[In, Out]) testCase(msg string, test Case[In, Out]) result {
 	if (test.ShouldErr && result.err == nil) || (test.ExpectedErr != nil && result.err == nil) {
 		result.fail("FAIL: %q should error", msg)
 	} else if !test.ShouldErr && result.err != nil && test.ExpectedErr == nil {
-		result.fail("FAIL: %q unexpected error '%s'", msg, result.err.Error())
+		result.fail("FAIL: %q unexpected error '%s'", msg, errorString(result.err))
 	} else if test.ExpectedErr != nil {
 		matched, matchFail := isExpectedError(result.err, test.ExpectedErr)
 		if matchFail != "" {
 			result.fail("FAIL: %q %s", msg, matchFail)
 		} else if !matched {
-			result.fail("FAIL: %q error %q does not match expected %q", msg, result.err, test.ExpectedErr)
+			result.fail("FAIL: %q error %q does not match expected %q", msg, errorString(result.err), test.ExpectedErr)
 		}
 	} else if !test.ShouldErr && test.ExpectedErr == nil {
 		if equal, diff := t.equalFn(result.value, test.Expected); !equal {

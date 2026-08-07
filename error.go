@@ -76,9 +76,6 @@ func (e expectErr) Error() string {
 		if e.err == nil {
 			return "any error"
 		}
-		if msg := e.err.Error(); msg != "" {
-			return msg
-		}
 		return fmt.Sprintf("error of type %T", e.err)
 	}
 	desc := fmt.Sprintf("%s %q", e.modeWord(), e.text)
@@ -88,19 +85,31 @@ func (e expectErr) Error() string {
 	return "error " + desc
 }
 
+func errorString(err error) string {
+	if err == nil {
+		return "<nil>"
+	}
+	v := reflect.ValueOf(err)
+	if v.Kind() == reflect.Ptr && v.IsNil() {
+		return fmt.Sprintf("<nil %T>", err)
+	}
+	return err.Error()
+}
+
 func (e expectErr) matches(actual error) (matched bool, failMsg string) {
 	if e.err != nil {
 		if reflect.TypeOf(actual) != reflect.TypeOf(e.err) {
+			actualStr := errorString(actual)
 			if e.text == "" {
-				return false, fmt.Sprintf("error %q is not %T", actual, e.err)
+				return false, fmt.Sprintf("error %q is not %T", actualStr, e.err)
 			}
 			switch e.mode {
 			case matchContains:
-				return false, fmt.Sprintf("error %q is not %T (expected to contain %q)", actual, e.err, e.text)
+				return false, fmt.Sprintf("error %q is not %T (expected to contain %q)", actualStr, e.err, e.text)
 			case matchRegex:
-				return false, fmt.Sprintf("error %q is not %T (expected to match pattern %q)", actual, e.err, e.text)
+				return false, fmt.Sprintf("error %q is not %T (expected to match pattern %q)", actualStr, e.err, e.text)
 			default:
-				return false, fmt.Sprintf("error %q is not %T (expected exactly %q)", actual, e.err, e.text)
+				return false, fmt.Sprintf("error %q is not %T (expected exactly %q)", actualStr, e.err, e.text)
 			}
 		}
 	}
@@ -109,13 +118,13 @@ func (e expectErr) matches(actual error) (matched bool, failMsg string) {
 		return true, ""
 	}
 
-	actualMsg := actual.Error()
+	actualMsg := errorString(actual)
 	switch e.mode {
 	case matchContains:
 		if strings.Contains(actualMsg, e.text) {
 			return true, ""
 		}
-		return false, fmt.Sprintf("error %q does not contain %q", actual, e.text)
+		return false, fmt.Sprintf("error %q does not contain %q", actualMsg, e.text)
 	case matchRegex:
 		re, err := regexp.Compile(e.text)
 		if err != nil {
@@ -124,12 +133,12 @@ func (e expectErr) matches(actual error) (matched bool, failMsg string) {
 		if re.MatchString(actualMsg) {
 			return true, ""
 		}
-		return false, fmt.Sprintf("error %q does not match pattern %q", actual, e.text)
+		return false, fmt.Sprintf("error %q does not match pattern %q", actualMsg, e.text)
 	default:
 		if actualMsg == e.text {
 			return true, ""
 		}
-		return false, fmt.Sprintf("error %q does not match exactly %q", actual, e.text)
+		return false, fmt.Sprintf("error %q does not match exactly %q", actualMsg, e.text)
 	}
 }
 
@@ -137,7 +146,7 @@ func isExpectedError(actual, expected error) (matched bool, failMsg string) {
 	if e, ok := expected.(expectErr); ok {
 		return e.matches(actual)
 	}
-	if strings.Contains(actual.Error(), expected.Error()) {
+	if strings.Contains(errorString(actual), errorString(expected)) {
 		return true, ""
 	}
 	return false, ""

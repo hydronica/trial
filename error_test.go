@@ -6,11 +6,28 @@ import (
 	"testing"
 )
 
+type typedErr struct{ msg string }
+
+func (e typedErr) Error() string { return e.msg }
+
+// nilPanicsErr.Error dereferences the receiver; a typed-nil *nilPanicsErr panics on Error().
+type nilPanicsErr struct{ msg string }
+
+func (e *nilPanicsErr) Error() string { return "prefix: " + e.msg }
+
+func typedNilPanicsErr() error {
+	var err *nilPanicsErr
+	return err
+}
+
 func TestError_matching(t *testing.T) {
 	errFn := func(msg string) func(Input) (any, error) {
 		return func(Input) (any, error) {
 			return nil, errors.New(msg)
 		}
+	}
+	typedNilFn := func(Input) (any, error) {
+		return nil, typedNilPanicsErr()
 	}
 
 	cases := map[string]struct {
@@ -81,6 +98,24 @@ func TestError_matching(t *testing.T) {
 			wantPass:  true,
 			wantInMsg: `PASS: "legacy errors.New substring"`,
 		},
+		"typed-nil contains fails safely": {
+			fn:        typedNilFn,
+			expected:  Error().Contains("x"),
+			wantPass:  false,
+			wantInMsg: "<nil",
+		},
+		"typed-nil exact fails safely": {
+			fn:        typedNilFn,
+			expected:  Error().Exact("x"),
+			wantPass:  false,
+			wantInMsg: "<nil",
+		},
+		"typed-nil legacy errors.New fails safely": {
+			fn:        typedNilFn,
+			expected:  errors.New("x"),
+			wantPass:  false,
+			wantInMsg: "<nil",
+		},
 	}
 
 	for name, tc := range cases {
@@ -97,11 +132,11 @@ func TestError_matching(t *testing.T) {
 	}
 }
 
-type typedErr struct{ msg string }
-
-func (e typedErr) Error() string { return e.msg }
-
 func TestError_IsType_matching(t *testing.T) {
+	typedNilFn := func(Input) (any, error) {
+		return nil, typedNilPanicsErr()
+	}
+
 	cases := map[string]struct {
 		fn        func(Input) (any, error)
 		expected  error
@@ -123,6 +158,12 @@ func TestError_IsType_matching(t *testing.T) {
 			expected:  Error().IsType(typedErr{}),
 			wantPass:  false,
 			wantInMsg: `is not trial.typedErr`,
+		},
+		"typed-nil is type mismatch fails safely": {
+			fn:        typedNilFn,
+			expected:  Error().IsType(typedErr{}),
+			wantPass:  false,
+			wantInMsg: "<nil",
 		},
 		"type and contains pass": {
 			fn: func(Input) (any, error) {
@@ -228,9 +269,9 @@ func TestExpectErr_Error_string(t *testing.T) {
 			want: "error of type trial.typedErr",
 		},
 		{
-			name: "is type with error message",
+			name: "is type only with sample error message",
 			err:  Error().IsType(errors.New("not found")),
-			want: "not found",
+			want: "error of type *errors.errorString",
 		},
 		{
 			name: "is type contains",
