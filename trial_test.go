@@ -372,17 +372,18 @@ func TestKnownIssue(t *testing.T) {
 		},
 	}
 
-	tr := New(func(struct{}) (int, error) { return 0, nil }, nil).KnownIssue(reason)
-
 	for name, tc := range cases {
 		tc := tc
-		tr.testFn = func(struct{}) (int, error) { return tc.fn() }
-		tr.timeout = tc.timeout
+		tr := New(func(struct{}) (int, error) { return tc.fn() }, nil).KnownIssue(reason)
+		if tc.timeout > time.Nanosecond {
+			tr.Timeout(tc.timeout)
+		}
 		result := tr.testCase(name, tc.c)
 
 		if result.Success != !tc.wantFail {
 			t.Errorf("%s: Success = %v, want %v", name, result.Success, !tc.wantFail)
 		}
+		// verify that the reason shows up on failed messages
 		hasReason := strings.Contains(result.Message, reason)
 		if tc.wantFail && !hasReason {
 			t.Errorf("%s: expected known issue in %q", name, result.Message)
