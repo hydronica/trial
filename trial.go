@@ -78,12 +78,12 @@ type Comparer interface {
 
 // Trial framework used to test different logical states
 type Trial[In any, Out any] struct {
-	cases             map[string]Case[In, Out]
-	testFn            testFunc[In, Out]
-	equalFn           CompareFunc
-	timeout           time.Duration
-	parallel          bool
-	knownIssueReason  string
+	cases            map[string]Case[In, Out]
+	testFn           testFunc[In, Out]
+	equalFn          CompareFunc
+	timeout          time.Duration
+	parallel         bool
+	knownIssueReason string
 }
 
 // Cases made during the trial
@@ -188,6 +188,12 @@ func (t *Trial[In, Out]) Test(tst testing.TB) {
 	}
 }
 
+func (t *Trial[In, Out]) decorateResult(r *result) {
+	if !r.Success && t.knownIssueReason != "" {
+		r.Message += colorYellow(fmt.Sprintf(" (known issue: %s)", t.knownIssueReason))
+	}
+}
+
 func (t *Trial[In, Out]) testCase(msg string, test Case[In, Out]) result {
 	// setup
 	done := make(chan *result)
@@ -217,10 +223,12 @@ func (t *Trial[In, Out]) testCase(msg string, test Case[In, Out]) result {
 	select {
 	case result = <-done:
 		if result.panicCheck {
+			t.decorateResult(result)
 			return *result
 		}
 	case <-ctx.Done():
 		result.fail("FAIL: %q timeout after %s", msg, t.timeout.String())
+		t.decorateResult(result)
 		return *result
 	}
 
@@ -237,9 +245,7 @@ func (t *Trial[In, Out]) testCase(msg string, test Case[In, Out]) result {
 			result.pass("PASS: %q", msg)
 		}
 	}
-	if !result.Success && t.knownIssueReason != "" {
-		result.Message += colorYellow(fmt.Sprintf(" (known issue: %s)", t.knownIssueReason))
-	}
+	t.decorateResult(result)
 	return *result
 }
 

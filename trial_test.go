@@ -336,24 +336,59 @@ func TestParallel(t *testing.T) {
 }
 
 func TestKnownIssue(t *testing.T) {
+	const reason = "Issue #1234"
 
-	fn := func(in int) (int, error) {
-		return in * 2, nil
-	}
-	cases := map[string]Case[int, int]{
-		"mismatch": {Input: 2, Expected: 999},
-		"match":    {Input: 2, Expected: 4},
-	}
-	testRunner := New(fn, cases).KnownIssue("Issue #1234")
+	type fn func() (int, error)
 
-	for testName, test := range cases {
-		result := testRunner.testCase(testName, test)
-		if result.Success && strings.Contains(result.Message, "Issue #1234") {
-			t.Logf("FAIL: Unexpecte Known issue %v", result.Message)
-			t.Fail()
-		} else if !result.Success && !strings.Contains(result.Message, "Issue #1234") {
-			t.Logf("FAIL: Expected Known Issue in %v", result.Message)
-			t.Fail()
+	cases := map[string]struct {
+		fn       fn
+		c        Case[struct{}, int]
+		timeout  time.Duration
+		wantFail bool
+	}{
+		"pass": {
+			fn:       func() (int, error) { return 42, nil },
+			c:        Case[struct{}, int]{Expected: 42},
+			wantFail: false,
+		},
+		"mismatch": {
+			fn:       func() (int, error) { return 42, nil },
+			c:        Case[struct{}, int]{Expected: 0},
+			wantFail: true,
+		},
+		"timeout": {
+			fn: func() (int, error) {
+				time.Sleep(time.Second)
+				return 0, nil
+			},
+			timeout:  time.Millisecond,
+			wantFail: true,
+		},
+		"panic": {
+			fn: func() (int, error) {
+				panic("boom")
+			},
+			wantFail: true,
+		},
+	}
+
+	tr := New(func(struct{}) (int, error) { return 0, nil }, nil).KnownIssue(reason)
+
+	for name, tc := range cases {
+		tc := tc
+		tr.testFn = func(struct{}) (int, error) { return tc.fn() }
+		tr.timeout = tc.timeout
+		result := tr.testCase(name, tc.c)
+
+		if result.Success != !tc.wantFail {
+			t.Errorf("%s: Success = %v, want %v", name, result.Success, !tc.wantFail)
+		}
+		hasReason := strings.Contains(result.Message, reason)
+		if tc.wantFail && !hasReason {
+			t.Errorf("%s: expected known issue in %q", name, result.Message)
+		}
+		if !tc.wantFail && hasReason {
+			t.Errorf("%s: unexpected known issue in %q", name, result.Message)
 		}
 	}
 }
