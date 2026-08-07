@@ -1,6 +1,7 @@
 package trial
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"reflect"
@@ -157,52 +158,157 @@ func Equal(actual, expected any) (bool, string) {
 // so both sides share the same JSON DOM shape (map, slice, float64 numbers).
 // Use with embedded fixture strings or struct outputs that differ only in key order or formatting.
 func JSONEqual(actual, expected any) (bool, string) {
-	actualNorm, err := normalizeToJSON(actual)
+	return compareJSON(actual, expected, defaultJSONConfig())
+}
+
+type jsonCompareMode int
+
+const (
+	jsonCompareEqual jsonCompareMode = iota
+	jsonCompareSubset
+)
+
+type jsonCompareConfig struct {
+	useNumber   bool
+	ignorePaths []string
+	mode        jsonCompareMode
+}
+
+// JSONOption configures JSON comparison via JSONOpt.
+type JSONOption func(*jsonCompareConfig)
+
+func defaultJSONConfig() jsonCompareConfig {
+	return jsonCompareConfig{mode: jsonCompareEqual}
+}
+
+// JSONOpt returns a comparer that normalizes JSON and applies the given options.
+func JSONOpt(opts ...JSONOption) CompareFunc {
+	cfg := defaultJSONConfig()
+	for _, opt := range opts {
+		opt(&cfg)
+	}
+	return func(actual, expected any) (bool, string) {
+		return compareJSON(actual, expected, cfg)
+	}
+}
+
+// JSONSubset checks that expected is contained in actual after JSON normalization.
+func JSONSubset() JSONOption {
+	return func(cfg *jsonCompareConfig) {
+		cfg.mode = jsonCompareSubset
+	}
+}
+
+// JSONUseNumber unmarshals JSON numbers as json.Number instead of float64.
+func JSONUseNumber() JSONOption {
+	return func(cfg *jsonCompareConfig) {
+		cfg.useNumber = true
+	}
+}
+
+// JSONIgnorePaths removes JSON keys from both sides before comparison.
+// Paths use dot notation for nested keys (e.g. "meta.created_at").
+func JSONIgnorePaths(paths ...string) JSONOption {
+	return func(cfg *jsonCompareConfig) {
+		cfg.ignorePaths = append(cfg.ignorePaths, paths...)
+	}
+}
+
+// JSONContains compares JSON semantically with subset matching (expected ⊆ actual).
+var JSONContains CompareFunc = JSONOpt(JSONSubset())
+
+func compareJSON(actual, expected any, cfg jsonCompareConfig) (bool, string) {
+	actualNorm, err := normalizeToJSON(actual, cfg)
 	if err != nil {
 		return false, fmt.Sprintf("actual: invalid JSON: %v", err)
 	}
-	expectedNorm, err := normalizeToJSON(expected)
+	expectedNorm, err := normalizeToJSON(expected, cfg)
 	if err != nil {
 		return false, fmt.Sprintf("expected: invalid JSON: %v", err)
+	}
+	if len(cfg.ignorePaths) > 0 {
+		actualNorm = stripJSONPaths(actualNorm, cfg.ignorePaths)
+		expectedNorm = stripJSONPaths(expectedNorm, cfg.ignorePaths)
+	}
+	if cfg.mode == jsonCompareSubset {
+		return Contains(actualNorm, expectedNorm)
 	}
 	r := cmp.Diff(actualNorm, expectedNorm)
 	return r == "", r
 }
 
-func normalizeToJSON(v any) (any, error) {
+func normalizeToJSON(v any, cfg jsonCompareConfig) (any, error) {
 	if v == nil {
 		return nil, nil
 	}
 	switch x := v.(type) {
 	case string:
-		var out any
-		if err := json.Unmarshal([]byte(x), &out); err != nil {
-			return nil, err
-		}
-		return out, nil
+		return unmarshalJSON([]byte(x), cfg.useNumber)
 	case []byte:
-		var out any
-		if err := json.Unmarshal(x, &out); err != nil {
-			return nil, err
-		}
-		return out, nil
+		return unmarshalJSON(x, cfg.useNumber)
 	case json.RawMessage:
-		var out any
-		if err := json.Unmarshal(x, &out); err != nil {
-			return nil, err
-		}
-		return out, nil
+		return unmarshalJSON(x, cfg.useNumber)
 	default:
 		data, err := json.Marshal(v)
 		if err != nil {
 			return nil, err
 		}
+		return unmarshalJSON(data, cfg.useNumber)
+	}
+}
+
+func unmarshalJSON(data []byte, useNumber bool) (any, error) {
+	if !useNumber {
 		var out any
 		if err := json.Unmarshal(data, &out); err != nil {
 			return nil, err
 		}
 		return out, nil
 	}
+	dec := json.NewDecoder(bytes.NewReader(data))
+	dec.UseNumber()
+	var out any
+	if err := dec.Decode(&out); err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func stripJSONPaths(v any, paths []string) any {
+	m, ok := v.(map[string]any)
+	if !ok || len(paths) == 0 {
+		return v
+	}
+	out := cloneJSONMap(m)
+	for _, path := range paths {
+		removeJSONPath(out, path)
+	}
+	return out
+}
+
+func cloneJSONMap(m map[string]any) map[string]any {
+	out := make(map[string]any, len(m))
+	for k, v := range m {
+		if child, ok := v.(map[string]any); ok {
+			out[k] = cloneJSONMap(child)
+			continue
+		}
+		out[k] = v
+	}
+	return out
+}
+
+func removeJSONPath(m map[string]any, path string) {
+	key, rest, ok := strings.Cut(path, ".")
+	if !ok {
+		delete(m, key)
+		return
+	}
+	child, ok := m[key].(map[string]any)
+	if !ok {
+		return
+	}
+	removeJSONPath(child, rest)
 }
 
 // EqualOpt allow easy customization of the cmp.Equal method.

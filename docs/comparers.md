@@ -8,6 +8,7 @@ Comparers determine how trial checks equality between actual and expected values
 - [Equal (Default)](#equal-default)
 - [EqualOpt](#equalopt)
 - [JSONEqual](#jsonequal)
+- [JSONOpt](#jsonopt)
 - [Contains](#contains)
 - [CmpFuncs](#cmpfuncs)
 - [Custom Comparers](#custom-comparers)
@@ -256,6 +257,85 @@ trial.New(fn, cases).Comparer(trial.JSONEqual).SubTest(t)
 - Unexported struct fields are not compared (JSON round-trip uses exported fields only)
 - Invalid JSON returns an error naming the side with parse detail (e.g. `actual: invalid JSON: invalid character 'n' ...`)
 
+For subset matching, ignoring dynamic JSON fields, or exact large integers, see [JSONOpt](#jsonopt).
+
+---
+
+## JSONOpt
+
+Configurable JSON comparison. `JSONEqual` is equivalent to `JSONOpt()` with no options.
+
+```go
+func JSONOpt(opts ...JSONOption) CompareFunc
+```
+
+**Sugar comparer:**
+
+```go
+var JSONContains CompareFunc // JSONOpt(JSONSubset())
+```
+
+### Available Options
+
+#### JSONSubset
+
+After normalization, check that expected is contained in actual (extra keys in actual are OK). Array semantics match `Contains`: each expected element must appear somewhere in the actual array.
+
+```go
+trial.JSONOpt(trial.JSONSubset())
+// or
+trial.JSONContains
+```
+
+**Example — partial API response:**
+
+```go
+cases := trial.Cases[Input, string]{
+    "has required fields": {
+        Input:    in,
+        Expected: `{"name":"foo","count":5}`,
+    },
+}
+// fn returns full JSON body with id, timestamps, etc.
+trial.New(fn, cases).Comparer(trial.JSONContains).SubTest(t)
+```
+
+#### JSONIgnorePaths
+
+Remove JSON keys from both sides before comparison. Uses dot notation for nested keys. Paths refer to **JSON keys** after normalization, not Go struct field names.
+
+```go
+trial.JSONOpt(trial.JSONIgnorePaths("id", "meta.created_at"))
+```
+
+**Example — ignore dynamic fields on full equality:**
+
+```go
+trial.New(fn, cases).Comparer(
+    trial.JSONOpt(trial.JSONIgnorePaths("id", "created_at")),
+).SubTest(t)
+```
+
+#### JSONUseNumber
+
+Unmarshal numbers as `json.Number` instead of `float64`. Opt-in when large integers must compare exactly.
+
+```go
+trial.JSONOpt(trial.JSONUseNumber())
+```
+
+Default `JSONEqual` keeps `float64` normalization (standard Go JSON behavior).
+
+### Combining Options
+
+```go
+trial.New(fn, cases).Comparer(
+    trial.JSONOpt(trial.JSONSubset(), trial.JSONIgnorePaths("request_id")),
+).SubTest(t)
+```
+
+**Note:** `JSONOption` is separate from `EqualOpt`. Use `EqualOpt` for struct/cmp rules; use `JSONOpt` for JSON fixtures and API bodies.
+
 ---
 
 ## Contains
@@ -435,7 +515,10 @@ trial.New(fn, cases).Comparer(WithinTolerance(0.001)).Test(t)
 | Scenario | Recommended Comparer |
 |----------|---------------------|
 | Exact equality (default) | `Equal` |
-| JSON / struct semantic equality | `JSONEqual` |
+| JSON / struct semantic equality | `JSONEqual` or `JSONOpt()` |
+| Partial JSON body (extra keys OK) | `JSONContains` or `JSONOpt(JSONSubset())` |
+| Ignore dynamic JSON fields | `JSONOpt(JSONIgnorePaths(...))` |
+| Exact large JSON integers | `JSONOpt(JSONUseNumber())` |
 | Ignore specific fields | `EqualOpt(IgnoreFields(...))` |
 | Ignore embedded struct fields | `EqualOpt(IgnoreFieldsOf(EmbeddedType{}, ...))` |
 | Ignore private fields | `EqualOpt(IgnoreAllUnexported)` |

@@ -2,6 +2,7 @@ package trial
 
 import (
 	"errors"
+	"fmt"
 	"reflect"
 	"testing"
 	"time"
@@ -201,6 +202,119 @@ func TestJSONEqual(t *testing.T) {
 			Input: input{
 				actual:   nil,
 				expected: nil,
+			},
+			Expected: true,
+		},
+	}
+	New(fn, cases).SubTest(t)
+}
+
+func TestJSONOpt(t *testing.T) {
+	const largeN = 9007199254740993  // 2^53+1; distinct from 9007199254740992 as int but same as float64
+	const largeN2 = 9007199254740992
+
+	type input struct {
+		fn       CompareFunc
+		actual   any
+		expected any
+	}
+	fn := func(in input) (bool, error) {
+		eq, diff := in.fn(in.actual, in.expected)
+		if !eq {
+			return false, errors.New(diff)
+		}
+		return eq, nil
+	}
+	cases := Cases[input, bool]{
+		"json opt default matches json equal": {
+			Input: input{
+				fn:       JSONOpt(),
+				actual:   `{"b":2,"a":1}`,
+				expected: `{"a":1,"b":2}`,
+			},
+			Expected: true,
+		},
+		"subset extra keys in actual": {
+			Input: input{
+				fn:       JSONContains,
+				actual:   `{"name":"foo","count":5,"id":"abc"}`,
+				expected: `{"name":"foo","count":5}`,
+			},
+			Expected: true,
+		},
+		"subset missing key in actual": {
+			Input: input{
+				fn: JSONOpt(JSONSubset()),
+				actual:   `{"name":"foo"}`,
+				expected: `{"name":"foo","count":5}`,
+			},
+			ShouldErr: true,
+		},
+		"subset struct actual partial json expected": {
+			Input: input{
+				fn: JSONContains,
+				actual: map[string]any{
+					"name":  "foo",
+					"count": float64(5),
+					"id":    "x",
+				},
+				expected: `{"name":"foo","count":5}`,
+			},
+			Expected: true,
+		},
+		"ignore paths top level": {
+			Input: input{
+				fn:       JSONOpt(JSONIgnorePaths("id")),
+				actual:   `{"name":"foo","id":"one"}`,
+				expected: `{"name":"foo","id":"two"}`,
+			},
+			Expected: true,
+		},
+		"ignore paths nested": {
+			Input: input{
+				fn: JSONOpt(JSONIgnorePaths("meta.created_at")),
+				actual:   `{"name":"foo","meta":{"created_at":"t1","v":1}}`,
+				expected: `{"name":"foo","meta":{"created_at":"t2","v":1}}`,
+			},
+			Expected: true,
+		},
+		"ignore paths without ignore fails": {
+			Input: input{
+				fn:       JSONOpt(),
+				actual:   `{"name":"foo","id":"one"}`,
+				expected: `{"name":"foo","id":"two"}`,
+			},
+			ShouldErr: true,
+		},
+		"use number detects distinct large integers": {
+			Input: input{
+				fn:       JSONOpt(JSONUseNumber()),
+				actual:   fmt.Sprintf(`{"n":%d}`, largeN),
+				expected: fmt.Sprintf(`{"n":%d}`, largeN2),
+			},
+			ShouldErr: true,
+		},
+		"default float64 treats large integers equal": {
+			Input: input{
+				fn:       JSONEqual,
+				actual:   fmt.Sprintf(`{"n":%d}`, largeN),
+				expected: fmt.Sprintf(`{"n":%d}`, largeN2),
+			},
+			Expected: true,
+		},
+		"use number preserves exact large integer match": {
+			Input: input{
+				fn:       JSONOpt(JSONUseNumber()),
+				actual:   fmt.Sprintf(`{"n":%d}`, largeN),
+				expected: fmt.Sprintf(`{"n":%d}`, largeN),
+			},
+			Expected: true,
+		},
+		"subset with ignore paths": {
+			Input: input{
+				fn: JSONOpt(JSONSubset(), JSONIgnorePaths("request_id")),
+				actual:   `{"name":"foo","request_id":"a","trace":"x"}`,
+				expected: `{"name":"foo","request_id":"b"}`,
 			},
 			Expected: true,
 		},

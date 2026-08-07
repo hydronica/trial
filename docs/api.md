@@ -81,6 +81,8 @@ See [comparers.md](comparers.md) for detailed documentation.
 |----------|-------------|
 | `Equal` | Default. Strict equality via `cmp.Equal` |
 | `JSONEqual` | Semantic JSON comparison (key order, whitespace) |
+| `JSONOpt(opts...)` | Configurable JSON comparison |
+| `JSONContains` | JSON subset matching (expected ⊆ actual) |
 | `Contains` | Subset/substring matching |
 | `EqualOpt(opts...)` | Customizable equality |
 | `CmpFuncs` | Compare function pointers |
@@ -95,6 +97,14 @@ See [comparers.md](comparers.md) for detailed documentation.
 | `IgnoreTypes(values...)` | Skip specific types |
 | `ApproxTime(d)` | Fuzzy time comparison |
 | `EquateEmpty` | nil == empty slice/map (default in `Equal`) |
+
+### JSONOpt Options
+
+| Option | Description |
+|--------|-------------|
+| `JSONSubset()` | Expected JSON contained in actual |
+| `JSONIgnorePaths(paths...)` | Skip JSON keys (dot notation) |
+| `JSONUseNumber()` | Compare numbers as `json.Number` |
 
 ## Helpers
 
