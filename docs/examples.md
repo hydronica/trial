@@ -303,6 +303,32 @@ trial.New(fn, cases).Comparer(
 ).Test(t)
 ```
 
+### JSON Subset Comparison
+
+Assert only required fields on a full API response:
+
+```go
+cases := trial.Cases[Input, string]{
+    "response has required fields": {
+        Input:    in,
+        Expected: `{"name":"foo","status":"ok"}`,
+    },
+}
+trial.New(fn, cases).Comparer(trial.JSONContains).SubTest(t)
+```
+
+### JSON Ignore Dynamic Fields
+
+Full equality after stripping volatile JSON keys:
+
+```go
+trial.New(fn, cases).Comparer(
+    trial.JSONOpt(trial.JSONIgnorePaths("id", "meta.created_at")),
+).SubTest(t)
+```
+
+See [comparers.md](comparers.md#jsonopt) for `JSONUseNumber` and combined options.
+
 ---
 
 ## Timeout

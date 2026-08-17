@@ -1,6 +1,9 @@
 package trial
 
 import (
+	"bytes"
+	"encoding/json"
+	"errors"
 	"fmt"
 	"reflect"
 	"sort"
@@ -15,7 +18,7 @@ import (
 // x is a string -> y is a string that is equal to or a subset of x (string.Contains)
 // x is a slice or array -> y is contained in x
 // x is a map -> y is a map and is contained in x
-func Contains(x, y interface{}) (bool, string) {
+func Contains(x, y any) (bool, string) {
 	// if nothing is expected we have a match
 	if y == nil {
 		return true, ""
@@ -39,12 +42,12 @@ func Contains(x, y interface{}) (bool, string) {
 // 3. Check for sub-maps
 // 4. use regex match as a sub-string check
 /*
-func ContainsOpt(o interface{}) CompareFunc {
+func ContainsOpt(o any) CompareFunc {
 	return Contains
 }
 */
 
-func contains(x, y interface{}) differ {
+func contains(x, y any) differ {
 	valX := reflect.ValueOf(x)
 	valY := reflect.ValueOf(y)
 	switch valX.Kind() {
@@ -59,7 +62,7 @@ func contains(x, y interface{}) differ {
 					return newMessagef("type mismatch %T %T", x, y)
 				}
 				v := []string{valX.String()}
-				arrI := make([]interface{}, len(arr))
+				arrI := make([]any, len(arr))
 				for i, v := range arr {
 					arrI[i] = v
 				}
@@ -73,7 +76,7 @@ func contains(x, y interface{}) differ {
 		return newDiff(x, s)
 	case reflect.Array, reflect.Slice:
 		if valY.Kind() == reflect.Slice || valY.Kind() == reflect.Array {
-			child := make([]interface{}, valY.Len())
+			child := make([]any, valY.Len())
 			for i := 0; i < valY.Len(); i++ {
 				child[i] = valY.Index(i).Interface()
 			}
@@ -104,7 +107,7 @@ func contains(x, y interface{}) differ {
 }
 
 func isInMap(parent reflect.Value, child reflect.Value) differ {
-	d := &mapDiff{values: make(map[interface{}][]string, 0)}
+	d := &mapDiff{values: make(map[any][]string, 0)}
 	for _, key := range child.MapKeys() {
 		p := parent.MapIndex(key)
 		if !p.IsValid() {
@@ -119,10 +122,10 @@ func isInMap(parent reflect.Value, child reflect.Value) differ {
 	return d.diffOrNil()
 }
 
-func isInSlice(parent reflect.Value, child ...interface{}) differ {
+func isInSlice(parent reflect.Value, child ...any) differ {
 	c := &collection{
-		found:   make([]interface{}, 0),
-		missing: make([]interface{}, 0),
+		found:   make([]any, 0),
+		missing: make([]any, 0),
 	}
 	for _, v := range child {
 		found := false
@@ -146,15 +149,222 @@ func isInSlice(parent reflect.Value, child ...interface{}) differ {
 
 // Equal use the cmp.Diff method to check equality and display differences.
 // This method checks all unexpected values
-func Equal(actual, expected interface{}) (bool, string) {
+func Equal(actual, expected any) (bool, string) {
 	fn := EqualOpt(AllowAllUnexported, EquateEmpty)
 	return fn(actual, expected)
 }
 
+// JSONEqual compares actual and expected semantically as JSON.
+// Strings and []byte are unmarshaled; other values are marshaled then unmarshaled
+// so both sides share the same JSON DOM shape (map, slice, float64 numbers).
+// Use with embedded fixture strings or struct outputs that differ only in key order or formatting.
+func JSONEqual(actual, expected any) (bool, string) {
+	return compareJSON(actual, expected, defaultJSONConfig())
+}
+
+type jsonCompareMode int
+
+const (
+	jsonCompareEqual jsonCompareMode = iota
+	jsonCompareSubset
+)
+
+type jsonCompareConfig struct {
+	useNumber   bool
+	ignorePaths []string
+	mode        jsonCompareMode
+}
+
+// JSONOption configures JSON comparison via JSONOpt.
+type JSONOption func(*jsonCompareConfig)
+
+func defaultJSONConfig() jsonCompareConfig {
+	return jsonCompareConfig{mode: jsonCompareEqual}
+}
+
+// JSONOpt returns a comparer that normalizes JSON and applies the given options.
+func JSONOpt(opts ...JSONOption) CompareFunc {
+	cfg := defaultJSONConfig()
+	for _, opt := range opts {
+		opt(&cfg)
+	}
+	return func(actual, expected any) (bool, string) {
+		return compareJSON(actual, expected, cfg)
+	}
+}
+
+// JSONSubset checks that expected is contained in actual after JSON normalization.
+func JSONSubset() JSONOption {
+	return func(cfg *jsonCompareConfig) {
+		cfg.mode = jsonCompareSubset
+	}
+}
+
+// JSONUseNumber unmarshals JSON numbers as json.Number instead of float64.
+func JSONUseNumber() JSONOption {
+	return func(cfg *jsonCompareConfig) {
+		cfg.useNumber = true
+	}
+}
+
+// JSONIgnorePaths removes JSON keys from both sides before comparison.
+// Paths use dot notation for nested keys (e.g. "meta.created_at").
+func JSONIgnorePaths(paths ...string) JSONOption {
+	return func(cfg *jsonCompareConfig) {
+		cfg.ignorePaths = append(cfg.ignorePaths, paths...)
+	}
+}
+
+// JSONContains compares JSON semantically with subset matching (expected ⊆ actual).
+var JSONContains CompareFunc = JSONOpt(JSONSubset())
+
+func compareJSON(actual, expected any, cfg jsonCompareConfig) (bool, string) {
+	actualNorm, err := normalizeToJSON(actual, cfg)
+	if err != nil {
+		return false, formatJSONNormalizeError("actual", err)
+	}
+	expectedNorm, err := normalizeToJSON(expected, cfg)
+	if err != nil {
+		return false, formatJSONNormalizeError("expected", err)
+	}
+	if len(cfg.ignorePaths) > 0 {
+		actualNorm = stripJSONPaths(actualNorm, cfg.ignorePaths)
+		expectedNorm = stripJSONPaths(expectedNorm, cfg.ignorePaths)
+	}
+	if cfg.mode == jsonCompareSubset {
+		return Contains(actualNorm, expectedNorm)
+	}
+	r := cmp.Diff(actualNorm, expectedNorm)
+	return r == "", r
+}
+
+func normalizeToJSON(v any, cfg jsonCompareConfig) (any, error) {
+	if v == nil {
+		return nil, nil
+	}
+	switch x := v.(type) {
+	case string:
+		out, err := unmarshalJSON([]byte(x), cfg.useNumber)
+		if err != nil {
+			return nil, &jsonNormalizeError{stage: jsonNormalizeUnmarshal, err: err}
+		}
+		return out, nil
+	case []byte:
+		out, err := unmarshalJSON(x, cfg.useNumber)
+		if err != nil {
+			return nil, &jsonNormalizeError{stage: jsonNormalizeUnmarshal, err: err}
+		}
+		return out, nil
+	case json.RawMessage:
+		out, err := unmarshalJSON(x, cfg.useNumber)
+		if err != nil {
+			return nil, &jsonNormalizeError{stage: jsonNormalizeUnmarshal, err: err}
+		}
+		return out, nil
+	default:
+		data, err := json.Marshal(v)
+		if err != nil {
+			return nil, &jsonNormalizeError{stage: jsonNormalizeMarshal, err: err}
+		}
+		out, err := unmarshalJSON(data, cfg.useNumber)
+		if err != nil {
+			return nil, &jsonNormalizeError{stage: jsonNormalizeUnmarshal, err: err}
+		}
+		return out, nil
+	}
+}
+
+type jsonNormalizeStage int
+
+const (
+	jsonNormalizeMarshal jsonNormalizeStage = iota
+	jsonNormalizeUnmarshal
+)
+
+type jsonNormalizeError struct {
+	stage jsonNormalizeStage
+	err   error
+}
+
+func (e *jsonNormalizeError) Error() string {
+	return e.err.Error()
+}
+
+func (e *jsonNormalizeError) Unwrap() error {
+	return e.err
+}
+
+func formatJSONNormalizeError(side string, err error) string {
+	var norm *jsonNormalizeError
+	if errors.As(err, &norm) {
+		switch norm.stage {
+		case jsonNormalizeMarshal:
+			return fmt.Sprintf("%s: cannot marshal value to JSON: %v", side, norm.err)
+		case jsonNormalizeUnmarshal:
+			return fmt.Sprintf("%s: cannot unmarshal JSON: %v", side, norm.err)
+		}
+	}
+	return fmt.Sprintf("%s: %v", side, err)
+}
+
+func unmarshalJSON(data []byte, useNumber bool) (any, error) {
+	if !useNumber {
+		var out any
+		if err := json.Unmarshal(data, &out); err != nil {
+			return nil, err
+		}
+		return out, nil
+	}
+	dec := json.NewDecoder(bytes.NewReader(data))
+	dec.UseNumber()
+	var out any
+	if err := dec.Decode(&out); err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func stripJSONPaths(v any, paths []string) any {
+	m, ok := v.(map[string]any)
+	if !ok || len(paths) == 0 {
+		return v
+	}
+	out := cloneJSONMap(m)
+	for _, path := range paths {
+		removeJSONPath(out, path)
+	}
+	return out
+}
+
+func cloneJSONMap(m map[string]any) map[string]any {
+	out := make(map[string]any, len(m))
+	for k, v := range m {
+		if child, ok := v.(map[string]any); ok {
+			out[k] = cloneJSONMap(child)
+			continue
+		}
+		out[k] = v
+	}
+	return out
+}
+
+func removeJSONPath(m map[string]any, path string) {
+	key, rest, ok := strings.Cut(path, ".")
+	if !ok {
+		delete(m, key)
+		return
+	}
+	child, ok := m[key].(map[string]any)
+	if !ok {
+		return
+	}
+	removeJSONPath(child, rest)
+}
+
 // EqualOpt allow easy customization of the cmp.Equal method.
 // see below for a list of supported options
-func EqualOpt(optFns ...func(i interface{}) cmp.Option) func(actual, expected interface{}) (bool, string) {
-	return func(actual, expected interface{}) (bool, string) {
+func EqualOpt(optFns ...func(i any) cmp.Option) func(actual, expected any) (bool, string) {
+	return func(actual, expected any) (bool, string) {
 		opts := make([]cmp.Option, 0)
 		for _, fn := range optFns {
 			opts = append(opts, fn(actual))
@@ -166,19 +376,19 @@ func EqualOpt(optFns ...func(i interface{}) cmp.Option) func(actual, expected in
 }
 
 // AllowAllUnexported sets cmp.Diff to allow all unexported (private) variables
-func AllowAllUnexported(i interface{}) cmp.Option {
+func AllowAllUnexported(i any) cmp.Option {
 	return cmp.AllowUnexported(findAllStructs(i, nil)...)
 }
 
 // IgnoreAllUnexported sets cmp.Diff to ignore all unexported (private) variables
-func IgnoreAllUnexported(i interface{}) cmp.Option {
+func IgnoreAllUnexported(i any) cmp.Option {
 	return cmpopts.IgnoreUnexported(findAllStructs(i, nil)...)
 }
 
 // IgnoreFields is a wrapper around the cmpopts.IgnoreFields
 // syntax: IgnoreFields(package.struct.Field)
-func IgnoreFields(f ...string) func(interface{}) cmp.Option {
-	return func(i interface{}) cmp.Option {
+func IgnoreFields(f ...string) func(any) cmp.Option {
+	return func(i any) cmp.Option {
 		t := reflect.TypeOf(i)
 		if t.Kind() == reflect.Ptr { // dereference pointers
 			i = reflect.New(t.Elem()).Elem().Interface()
@@ -196,8 +406,8 @@ func IgnoreFields(f ...string) func(interface{}) cmp.Option {
 // cannot infer the correct type.
 //
 //	trial.EqualOpt(trial.IgnoreFieldsOf(Metadata{}, "CreatedAt", "UpdatedAt"))
-func IgnoreFieldsOf(structType interface{}, fields ...string) func(interface{}) cmp.Option {
-	return func(_ interface{}) cmp.Option {
+func IgnoreFieldsOf(structType any, fields ...string) func(any) cmp.Option {
+	return func(_ any) cmp.Option {
 		return cmpopts.IgnoreFields(structType, fields...)
 	}
 }
@@ -205,8 +415,8 @@ func IgnoreFieldsOf(structType interface{}, fields ...string) func(interface{}) 
 // IgnoreTypes is a wrapper around the cmpopts.IgnoreTypes
 // it allows ignore the type of the values passed in
 // int32(0), int(0), string(0), time.Duration(0), etc
-func IgnoreTypes(types ...interface{}) func(interface{}) cmp.Option {
-	return func(_ interface{}) cmp.Option {
+func IgnoreTypes(types ...any) func(any) cmp.Option {
+	return func(_ any) cmp.Option {
 		return cmpopts.IgnoreTypes(types...)
 	}
 }
@@ -214,15 +424,15 @@ func IgnoreTypes(types ...interface{}) func(interface{}) cmp.Option {
 // ApproxTime is a wrapper around the cmpopts.EquateApproxTime
 // it will consider time.Time values equal if there difference is
 // less than the defined duration
-func ApproxTime(d time.Duration) func(interface{}) cmp.Option {
-	return func(_ interface{}) cmp.Option {
+func ApproxTime(d time.Duration) func(any) cmp.Option {
+	return func(_ any) cmp.Option {
 		return cmpopts.EquateApproxTime(d)
 	}
 }
 
 /*
-func IgnoreInterfaces(i ...interface{}) func(interface{}) cmp.Option {
-	return func(i interface{}) cmp.Option {
+func IgnoreInterfaces(i ...any) func(any) cmp.Option {
+	return func(i any) cmp.Option {
 		return cmpopts.IgnoreInterfaces(i)
 	}
 }
@@ -231,7 +441,7 @@ func IgnoreInterfaces(i ...interface{}) func(interface{}) cmp.Option {
 // EquateEmpty is a wrapper around cmpopts.EquateEmpty
 // it determines all maps and slices with a length of zero to be equal,
 // regardless of whether they are nil
-func EquateEmpty(i interface{}) cmp.Option {
+func EquateEmpty(i any) cmp.Option {
 	return cmpopts.EquateEmpty()
 }
 
@@ -300,7 +510,7 @@ func findAllStructs(i any, structs structMap) []any {
 			}
 			if !v.CanInterface() {
 				// if the field is unexported (private) we wouldn't be able
-				// to get the interface{} so instead create a copy of that field
+				// to get the any so instead create a copy of that field
 				v = reflect.New(v.Type()).Elem()
 			}
 			structs.Add(findAllStructs(v.Interface(), structs)...)
@@ -339,7 +549,7 @@ func findAllStructs(i any, structs structMap) []any {
 }
 
 // CmpFuncs tries to determine if x is the same function as y.
-func CmpFuncs(x, y interface{}) (b bool, s string) {
+func CmpFuncs(x, y any) (b bool, s string) {
 	if x == nil || y == nil {
 		if x == y {
 			return true, ""
@@ -368,14 +578,14 @@ type differ interface {
 type message string
 
 func (m message) String() string { return string(m) }
-func newMessagef(s string, args ...interface{}) message {
+func newMessagef(s string, args ...any) message {
 	return message(fmt.Sprintf(s, args...))
 }
 
 // collection is a differ used for slices to show what items match and which don't
 type collection struct {
-	found   []interface{}
-	missing []interface{}
+	found   []any
+	missing []any
 }
 
 func (c *collection) String() (s string) {
@@ -392,19 +602,19 @@ func (c *collection) String() (s string) {
 }
 
 type diff struct {
-	x   interface{}
-	y   interface{}
+	x   any
+	y   any
 	msg string
 }
 
-func newDiff(x, y interface{}) *diff {
+func newDiff(x, y any) *diff {
 	return &diff{
 		x:   x,
 		y:   y,
 		msg: fmt.Sprintf(" + %v\n - %v", x, y)}
 }
 
-func newDiffMsg(x, y interface{}, s string) *diff {
+func newDiffMsg(x, y any, s string) *diff {
 	return &diff{x, y, s}
 }
 
@@ -414,7 +624,7 @@ func (d *diff) String() string {
 
 // mapDiff is a differ for maps
 type mapDiff struct {
-	values map[interface{}][]string
+	values map[any][]string
 }
 
 func (d *mapDiff) String() (s string) {

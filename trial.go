@@ -58,7 +58,7 @@ func colorYellow(s string) string {
 
 type (
 	// TestFunc a wrapper function used to setup the method being tested.
-	TestFunc func(in Input) (result interface{}, err error)
+	TestFunc func(in Input) (result any, err error)
 
 	// CompareFunc compares actual and expected to determine equality. It should return
 	// a human readable string representing the differences between actual and
@@ -66,14 +66,14 @@ type (
 	// Symbols with meaning:
 	// "-" elements missing from actual
 	// "+" elements missing from expected
-	CompareFunc               func(actual, expected interface{}) (equal bool, differences string)
+	CompareFunc               func(actual, expected any) (equal bool, differences string)
 	testFunc[In any, Out any] func(in In) (result Out, err error)
 )
 
 // Comparer interface is implemented by an object to check for equality
 // and show any differences found
 type Comparer interface {
-	Equals(interface{}) (bool, string)
+	Equals(any) (bool, string)
 }
 
 // Trial framework used to test different logical states
@@ -113,15 +113,15 @@ func New[In any, Out any](fn func(In) (Out, error), cases map[string]Case[In, Ou
 }
 
 // EqualFn override the default comparison method used.
-// see ContainsFn(x, y interface{}) (bool, string)
+// see ContainsFn(x, y any) (bool, string)
 // deprecated
 func (t *Trial[In, Out]) EqualFn(fn CompareFunc) *Trial[In, Out] {
 	return t.Comparer(fn)
 }
 
 // Comparer override the default comparison function.
-// see Contains(x, y interface{}) (bool, string)
-// see Equals(x, y interface{}) (bool, string)
+// see Contains(x, y any) (bool, string)
+// see Equals(x, y any) (bool, string)
 func (t *Trial[In, Out]) Comparer(fn CompareFunc) *Trial[In, Out] {
 	t.equalFn = fn
 	return t
@@ -290,17 +290,17 @@ func ErrType(err error) error {
 type result struct {
 	Success    bool
 	Message    string
-	value      interface{}
+	value      any
 	err        error
 	panicCheck bool
 }
 
-func (r *result) pass(format string, args ...interface{}) {
+func (r *result) pass(format string, args ...any) {
 	r.Success = true
 	r.Message = fmt.Sprintf(format, args...)
 }
 
-func (r *result) fail(format string, args ...interface{}) {
+func (r *result) fail(format string, args ...any) {
 	r.Success = false
 	r.Message = fmt.Sprintf(format, args...)
 }
