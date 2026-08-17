@@ -48,6 +48,14 @@ func colorGreen(s string) string {
 	return s
 }
 
+// colorYellow wraps text in yellow ANSI color codes if colors are enabled.
+func colorYellow(s string) string {
+	if colorEnabled {
+		return "\033[33m" + s + "\033[0m"
+	}
+	return s
+}
+
 type (
 	// TestFunc a wrapper function used to setup the method being tested.
 	TestFunc func(in Input) (result interface{}, err error)
@@ -70,11 +78,12 @@ type Comparer interface {
 
 // Trial framework used to test different logical states
 type Trial[In any, Out any] struct {
-	cases    map[string]Case[In, Out]
-	testFn   testFunc[In, Out]
-	equalFn  CompareFunc
-	timeout  time.Duration
-	parallel bool
+	cases            map[string]Case[In, Out]
+	testFn           testFunc[In, Out]
+	equalFn          CompareFunc
+	timeout          time.Duration
+	parallel         bool
+	knownIssueReason string
 }
 
 // Cases made during the trial
@@ -126,6 +135,14 @@ func (t *Trial[In, Out]) Parallel() *Trial[In, Out] {
 	return t
 }
 
+// KnownIssue marks this trial run with a known-issue reason.
+// If a case fails, the reason is appended to improve visibility.
+// This does not change pass/fail behavior.
+func (t *Trial[In, Out]) KnownIssue(reason string) *Trial[In, Out] {
+	t.knownIssueReason = reason
+	return t
+}
+
 // SubTest runs all cases as individual subtests
 func (t *Trial[In, Out]) SubTest(tst testing.TB) {
 	if h, ok := tst.(tHelper); ok {
@@ -171,6 +188,12 @@ func (t *Trial[In, Out]) Test(tst testing.TB) {
 	}
 }
 
+func (t *Trial[In, Out]) decorateResult(r *result) {
+	if !r.Success && t.knownIssueReason != "" {
+		r.Message += colorYellow(fmt.Sprintf(" (known issue: %s)", t.knownIssueReason))
+	}
+}
+
 func (t *Trial[In, Out]) testCase(msg string, test Case[In, Out]) result {
 	// setup
 	done := make(chan *result)
@@ -200,10 +223,12 @@ func (t *Trial[In, Out]) testCase(msg string, test Case[In, Out]) result {
 	select {
 	case result = <-done:
 		if result.panicCheck {
+			t.decorateResult(result)
 			return *result
 		}
 	case <-ctx.Done():
 		result.fail("FAIL: %q timeout after %s", msg, t.timeout.String())
+		t.decorateResult(result)
 		return *result
 	}
 
@@ -220,6 +245,7 @@ func (t *Trial[In, Out]) testCase(msg string, test Case[In, Out]) result {
 			result.pass("PASS: %q", msg)
 		}
 	}
+	t.decorateResult(result)
 	return *result
 }
 

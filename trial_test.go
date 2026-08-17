@@ -335,6 +335,65 @@ func TestParallel(t *testing.T) {
 	New(fn, cases).Parallel().SubTest(t)
 }
 
+func TestKnownIssue(t *testing.T) {
+	const reason = "Issue #1234"
+
+	type fn func() (int, error)
+
+	cases := map[string]struct {
+		fn       fn
+		c        Case[struct{}, int]
+		timeout  time.Duration
+		wantFail bool
+	}{
+		"pass": {
+			fn:       func() (int, error) { return 42, nil },
+			c:        Case[struct{}, int]{Expected: 42},
+			wantFail: false,
+		},
+		"mismatch": {
+			fn:       func() (int, error) { return 42, nil },
+			c:        Case[struct{}, int]{Expected: 0},
+			wantFail: true,
+		},
+		"timeout": {
+			fn: func() (int, error) {
+				time.Sleep(time.Second)
+				return 0, nil
+			},
+			timeout:  time.Millisecond,
+			wantFail: true,
+		},
+		"panic": {
+			fn: func() (int, error) {
+				panic("boom")
+			},
+			wantFail: true,
+		},
+	}
+
+	for name, tc := range cases {
+		tc := tc
+		tr := New(func(struct{}) (int, error) { return tc.fn() }, nil).KnownIssue(reason)
+		if tc.timeout > time.Nanosecond {
+			tr.Timeout(tc.timeout)
+		}
+		result := tr.testCase(name, tc.c)
+
+		if result.Success != !tc.wantFail {
+			t.Errorf("%s: Success = %v, want %v", name, result.Success, !tc.wantFail)
+		}
+		// verify that the reason shows up on failed messages
+		hasReason := strings.Contains(result.Message, reason)
+		if tc.wantFail && !hasReason {
+			t.Errorf("%s: expected known issue in %q", name, result.Message)
+		}
+		if !tc.wantFail && hasReason {
+			t.Errorf("%s: unexpected known issue in %q", name, result.Message)
+		}
+	}
+}
+
 func TestColorDiagnostics(t *testing.T) {
 	if colorEnabled {
 		t.Log("Color Enabled " + colorGreen("GREEN") + " " + colorRed("RED"))
