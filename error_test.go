@@ -116,6 +116,24 @@ func TestError_matching(t *testing.T) {
 			wantPass:  false,
 			wantInMsg: "<nil",
 		},
+		"ErrExact shorthand": {
+			fn:        errFn("test error"),
+			expected:  ErrExact("test error"),
+			wantPass:  true,
+			wantInMsg: `PASS: "ErrExact shorthand"`,
+		},
+		"ErrContains shorthand": {
+			fn:        errFn("request timeout after 5s"),
+			expected:  ErrContains("timeout"),
+			wantPass:  true,
+			wantInMsg: `PASS: "ErrContains shorthand"`,
+		},
+		"ErrRegex shorthand": {
+			fn:        errFn("invalid xyz format"),
+			expected:  ErrRegex(`invalid.*format`),
+			wantPass:  true,
+			wantInMsg: `PASS: "ErrRegex shorthand"`,
+		},
 	}
 
 	for name, tc := range cases {
@@ -213,13 +231,13 @@ func TestError_IsType_matching(t *testing.T) {
 			wantPass:  false,
 			wantInMsg: `invalid regex pattern`,
 		},
-		"deprecated ErrType still works": {
+		"ErrType shorthand": {
 			fn: func(Input) (any, error) {
 				return nil, typedErr{msg: "anything"}
 			},
 			expected:  ErrType(typedErr{}),
 			wantPass:  true,
-			wantInMsg: `PASS: "deprecated ErrType still works"`,
+			wantInMsg: `PASS: "ErrType shorthand"`,
 		},
 	}
 

@@ -55,7 +55,22 @@ func (e expectErr) Regex(pattern string) error {
 	return e
 }
 
-// ErrType is deprecated. Use Error().IsType(err) instead.
+// ErrExact requires the error message to match msg exactly.
+func ErrExact(msg string) error {
+	return Error().Exact(msg)
+}
+
+// ErrContains requires the error message to contain substr.
+func ErrContains(substr string) error {
+	return Error().Contains(substr)
+}
+
+// ErrRegex requires the error message to match pattern.
+func ErrRegex(pattern string) error {
+	return Error().Regex(pattern)
+}
+
+// ErrType requires the actual error to be the same type as err.
 func ErrType(err error) error {
 	return Error().IsType(err)
 }

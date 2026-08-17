@@ -142,9 +142,18 @@ ExpectedErr: trial.Error().IsType(ValidationError{})  // type match
 
 Invalid regex patterns fail at compare time with a clear failure message.
 
-### ErrType
+### Shorthand helpers
 
-Deprecated. Use `Error().IsType(err)` instead.
+One-liner alternatives to the builder for single constraints:
+
+```go
+ExpectedErr: trial.ErrExact("invalid input")
+ExpectedErr: trial.ErrContains("timeout")
+ExpectedErr: trial.ErrRegex(`invalid.*format`)
+ExpectedErr: trial.ErrType(ValidationError{})
+```
+
+Use `trial.Error().IsType(err).Contains("...")` when type and message checks are combined.
 
 **Legacy:** `errors.New("fragment")` with `ExpectedErr` still uses substring matching via `strings.Contains`.
 

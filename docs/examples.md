@@ -156,6 +156,8 @@ cases := trial.Cases[string, int]{
 }
 ```
 
+Shorthand helpers for single constraints: `trial.ErrExact`, `ErrContains`, `ErrRegex`, `ErrType`.
+
 ### IsType - Expect Specific Error Type
 
 ```go
@@ -170,7 +172,7 @@ func (e ValidationError) Error() string {
 cases := trial.Cases[string, string]{
     "validation error": {
         Input:       "",
-        ExpectedErr: trial.Error().IsType(ValidationError{}),
+        ExpectedErr: trial.ErrType(ValidationError{}),
     },
     "validation with message": {
         Input:       "",

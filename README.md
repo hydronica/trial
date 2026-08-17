@@ -37,9 +37,9 @@ Go testing framework to make tests easier to create, maintain and debug.
     - check for expected panic cases with `ShouldPanic`
   - Test error cases 
     - Check that a function returns an error: `ShouldErr` or `ExpectedErr: trial.Error()`
-    - Match error message: `trial.Error().Exact()`, `.Contains()`, or `.Regex()`
+    - Match error message: `trial.ErrExact()`, `ErrContains()`, `ErrRegex()`, or `trial.Error().Exact()` / `.Contains()` / `.Regex()`
     - Legacy substring match: `ExpectedErr: errors.New("fragment")`
-    - Check error type: `ExpectedErr: trial.Error().IsType(err)`
+    - Check error type: `ExpectedErr: trial.ErrType(err)` or `trial.Error().IsType(err)`
   - Fail tests that take too long to complete
     - `trial.New(fn,cases).Timeout(time.Second)`
   - Run subtests in parallel for faster execution
@@ -91,8 +91,8 @@ Each case field is described below:
 - **ShouldErr** *bool* - indicates the function should return an error
 - **ExpectedErr** *error* - verifies the function returns an expected error
   - `trial.Error()` — any error
-  - `trial.Error().Exact("msg")` — exact message; `.Contains("msg")` for substring; `.Regex(pat)` for pattern
-  - `trial.Error().IsType(err)` — type match; chain `.Contains()` / `.Regex()` for message checks
+  - `trial.ErrExact("msg")`, `ErrContains("msg")`, `ErrRegex(pat)`, `ErrType(err)` — single-constraint shorthands
+  - `trial.Error().Exact("msg")` — builder style; chain `.IsType()` with `.Contains()` / `.Regex()` for combined checks
   - `errors.New("fragment")` — legacy substring match via `strings.Contains`
   - also implies that the method should error so setting ShouldErr to true is not required
 - **ShouldPanic** *bool* - indicates the method should panic

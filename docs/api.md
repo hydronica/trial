@@ -33,7 +33,10 @@ type CompareFunc func(actual, expected interface{}) (equal bool, differences str
 |----------|-------------|
 | `New(fn, cases)` | Create Trial instance |
 | `Error()` | Expected error matcher builder (`.Exact`, `.Contains`, `.Regex`, `.IsType`) |
-| `ErrType(err)` | Deprecated — use `Error().IsType(err)` |
+| `ErrExact(msg)` | Shorthand for `Error().Exact(msg)` |
+| `ErrContains(substr)` | Shorthand for `Error().Contains(substr)` |
+| `ErrRegex(pattern)` | Shorthand for `Error().Regex(pattern)` |
+| `ErrType(err)` | Shorthand for `Error().IsType(err)` |
 
 ## Trial Methods
 
@@ -58,7 +61,8 @@ type CompareFunc func(actual, expected interface{}) (equal bool, differences str
 **Notes:**
 - `ExpectedErr` implies `ShouldErr`, no need to set both
 - `trial.Error()` — any error; `.Exact(msg)` for full message; `.Contains(msg)` for substring; `.Regex(pat)` for pattern
-- `trial.Error().IsType(err)` — type match; chain `.Contains()` / `.Regex()` for message checks
+- `trial.ErrExact(msg)`, `ErrContains(substr)`, `ErrRegex(pat)`, `ErrType(err)` — shorthands for single-constraint matchers
+- `trial.Error().IsType(err)` — type match; chain `.Contains()` / `.Regex()` for combined checks
 - `errors.New("fragment")` — legacy substring match via `strings.Contains`
 
 ## Input Methods
