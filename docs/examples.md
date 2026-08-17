@@ -120,7 +120,7 @@ cases := trial.Cases[[]int, int]{
 
 ### ExpectedErr - Expect Specific Error Message
 
-Uses `strings.Contains` to check the error message:
+Uses `strings.Contains` to check the error message (legacy):
 
 ```go
 cases := trial.Cases[string, output]{
@@ -131,7 +131,34 @@ cases := trial.Cases[string, output]{
 }
 ```
 
-### ErrType - Expect Specific Error Type
+### Error - Flexible Error Matching
+
+Use `trial.Error()` with builder methods:
+
+```go
+cases := trial.Cases[string, int]{
+    "any error": {
+        Input:       "bad",
+        ExpectedErr: trial.Error(),
+    },
+    "exact message": {
+        Input:       "bad",
+        ExpectedErr: trial.Error().Exact("invalid input"),
+    },
+    "substring match": {
+        Input:       "slow",
+        ExpectedErr: trial.Error().Contains("timeout"),
+    },
+    "regex match": {
+        Input:       "bad",
+        ExpectedErr: trial.Error().Regex(`invalid.*format`),
+    },
+}
+```
+
+Shorthand helpers for single constraints: `trial.ErrExact`, `ErrContains`, `ErrRegex`, `ErrType`.
+
+### IsType - Expect Specific Error Type
 
 ```go
 type ValidationError struct {
@@ -146,6 +173,14 @@ cases := trial.Cases[string, string]{
     "validation error": {
         Input:       "",
         ExpectedErr: trial.ErrType(ValidationError{}),
+    },
+    "validation with message": {
+        Input:       "",
+        ExpectedErr: trial.Error().IsType(ValidationError{}).Contains("field required"),
+    },
+    "validation with regex": {
+        Input:       "",
+        ExpectedErr: trial.Error().IsType(ValidationError{}).Regex(`field .+ required`),
     },
 }
 ```

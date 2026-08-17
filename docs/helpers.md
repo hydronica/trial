@@ -123,26 +123,39 @@ Use `Hour()` instead of `TimeHour()`, use `Day()` instead of `TimeDay()`.
 
 ## Error Helpers
 
-### ErrType
+### Error
 
-Wraps an error for **type-based comparison**. When used with `ExpectedErr`, trial checks that the returned error is the same type (not message).
+Creates an expected error matcher. With no methods, any error matches. Chain builder methods to constrain the match.
 
 ```go
-func ErrType(err error) error
+func Error() /* error matcher */
 ```
 
-**Example:**
+**Examples:**
 ```go
-type ValidationError struct{ Field string }
-func (e ValidationError) Error() string { return "invalid " + e.Field }
-
-cases := trial.Cases[string, string]{
-    "returns validation error": {
-        Input:       "",
-        ExpectedErr: trial.ErrType(ValidationError{}),
-    },
-}
+ExpectedErr: trial.Error()                              // any error
+ExpectedErr: trial.Error().Exact("invalid input")     // exact match
+ExpectedErr: trial.Error().Contains("timeout")        // substring
+ExpectedErr: trial.Error().Regex(`invalid.*format`) // regex
+ExpectedErr: trial.Error().IsType(ValidationError{})  // type match
 ```
+
+Invalid regex patterns fail at compare time with a clear failure message.
+
+### Shorthand helpers
+
+One-liner alternatives to the builder for single constraints:
+
+```go
+ExpectedErr: trial.ErrExact("invalid input")
+ExpectedErr: trial.ErrContains("timeout")
+ExpectedErr: trial.ErrRegex(`invalid.*format`)
+ExpectedErr: trial.ErrType(ValidationError{})
+```
+
+Use `trial.Error().IsType(err).Contains("...")` when type and message checks are combined.
+
+**Legacy:** `errors.New("fragment")` with `ExpectedErr` still uses substring matching via `strings.Contains`.
 
 ---
 
